@@ -15,6 +15,7 @@ typedef struct list {
  */
 list_t* allocate_and_initialize_list(void) {
 	list_t* list = malloc(sizeof(list_t));
+	list->head = NULL;
 	return list;
 }
 

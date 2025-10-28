@@ -1,3 +1,5 @@
+#include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -8,6 +10,7 @@ typedef struct list_element {
 
 typedef struct list {
 	struct list_element* head;
+	uint8_t* mask;
 } list_t;
 
 /**
@@ -16,6 +19,7 @@ typedef struct list {
 list_t* allocate_and_initialize_list(void) {
 	list_t* list = malloc(sizeof(list_t));
 	list->head = NULL;
+	list->mask = malloc(INT_MAX / sizeof(uint8_t) / 8);
 	return list;
 }
 
@@ -60,7 +64,11 @@ int list_append(list_t* list, const int value) {
 		return -1;
 	}
 
+	const int offset = (int)(value / (sizeof(uint8_t) * 8));
+	const int subvalue = 1 << (value % (sizeof(uint8_t) * 8));
+
 	if (!list->head) {
+		list->mask[offset] = list->mask[offset] | subvalue;
 		list_element_t* new_element = allocate_and_initialize_element(value, NULL);
 
 		if (!new_element) {
@@ -71,17 +79,16 @@ int list_append(list_t* list, const int value) {
 		return value;
 	}
 
-	list_element_t* current_element = list->head;
-	list_element_t* last_element = NULL;
+	if ((list->mask[offset] & subvalue) == subvalue) {
+		return -1;
+	}
 
-	do {
-		if (current_element->value == value) {
-			return -1;
-		}
+	list->mask[offset] = list->mask[offset] | subvalue;
 
-		last_element = current_element;
-		current_element = current_element->next;
-	} while (current_element);
+	list_element_t* last_element = list->head;
+	while (last_element->next) {
+		last_element = last_element->next;
+	}
 
 	if (!allocate_and_initialize_element(value, last_element)) {
 		return -1;

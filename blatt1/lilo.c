@@ -2,20 +2,35 @@
 #include <stdlib.h>
 
 typedef struct list_element {
-	unsigned int value;
+	int value;
 	struct list_element* next;
 } list_element_t;
 
 typedef struct list {
-	struct list_element* initial;
+	struct list_element* head;
 } list_t;
 
-list_element_t* initialize_element(const int value, list_element_t* parent) {
+/**
+ * @brief Allocates and initializes a new list_t.
+ */
+list_t* allocate_and_initialize_list(void) {
+	list_t* list = malloc(sizeof(list_t));
+	return list;
+}
+
+/**
+ * @brief Allocates and initializes a new list_element_t.
+ *
+ * @details When parent is not NULL, set the new element as the parents next element.
+ *
+ * @param value The value of the element.
+ * @param parent The optional parent of the element. Can be NULL.
+ */
+list_element_t* allocate_and_initialize_element(const int value, list_element_t* parent) {
 	list_element_t* new_element = malloc(sizeof(list_element_t));
 
 	if (!new_element) {
 		perror("cannot continue: malloc error");
-		// exit(EXIT_SUCCESS);
 		return NULL;
 	}
 
@@ -29,27 +44,37 @@ list_element_t* initialize_element(const int value, list_element_t* parent) {
 	return new_element;
 }
 
+/**
+ * @brief Append the value to the end of the list. No negative or duplicate entries are allowed.
+ *
+ * @details Appends the value at the end of the given list. If the value is negative or already in the list return -1.
+ * Otherwise, the value itself is returned.
+ *
+ * @param list The list to add the value to.
+ * @param value The value to add. Can't be negative or a duplicate.
+ * @return Parameter value or -1 if it couldn't be added.
+ */
 int list_append(list_t* list, const int value) {
 	if (value < 0) {
 		return -1;
 	}
 
-	if (!list->initial) {
-		list_element_t* new_element = initialize_element(value, NULL);
+	if (!list->head) {
+		list_element_t* new_element = allocate_and_initialize_element(value, NULL);
 
 		if (!new_element) {
 			return -1;
 		}
 
-		list->initial = new_element;
+		list->head = new_element;
 		return value;
 	}
 
-	list_element_t* current_element = list->initial;
+	list_element_t* current_element = list->head;
 	list_element_t* last_element = NULL;
 
 	do {
-		if (current_element->value == (unsigned int)value) {
+		if (current_element->value == value) {
 			return -1;
 		}
 
@@ -57,30 +82,34 @@ int list_append(list_t* list, const int value) {
 		current_element = current_element->next;
 	} while (current_element);
 
-	if (!initialize_element(value, last_element)) {
+	if (!allocate_and_initialize_element(value, last_element)) {
 		return -1;
 	}
 
 	return value;
 }
 
+/**
+ * @brief Remove and return the first value from the list.
+ *
+ * @return The first value or -1 if the list is empty.
+ */
 int list_pop(list_t* list) {
-	if (!list->initial) {
+	if (!list->head) {
 		return -1;
 	}
 
-	const unsigned int value = list->initial->value;
+	const int value = list->head->value;
 
-	list_element_t* old_initial = list->initial;
-	list->initial = old_initial->next;
+	list_element_t* old_initial = list->head;
+	list->head = old_initial->next;
 	free(old_initial);
 
-	return (int)value;
+	return value;
 }
 
 int main(void) {
-	list_t list;
-	list.initial = NULL;
+	list_t list = *allocate_and_initialize_list();
 
 	printf("insert 47: %d\n", list_append(&list, 47));
 	printf("insert 11: %d\n", list_append(&list, 11));

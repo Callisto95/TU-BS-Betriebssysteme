@@ -110,14 +110,14 @@ int list_pop(list_t* list) {
 }
 
 int main(void) {
-	list_t list = *allocate_and_initialize_list();
+	list_t* list = allocate_and_initialize_list();
 
-	printf("insert 47: %d\n", list_append(&list, 47));
-	printf("insert 11: %d\n", list_append(&list, 11));
-	printf("insert 23: %d\n", list_append(&list, 23));
-	printf("insert 11: %d\n", list_append(&list, 11));
+	printf("insert 47: %d\n", list_append(list, 47));
+	printf("insert 11: %d\n", list_append(list, 11));
+	printf("insert 23: %d\n", list_append(list, 23));
+	printf("insert 11: %d\n", list_append(list, 11));
 
-	printf("remove: %d\n", list_pop(&list));
-	printf("remove: %d\n", list_pop(&list));
+	printf("remove: %d\n", list_pop(list));
+	printf("remove: %d\n", list_pop(list));
 	exit(EXIT_SUCCESS);
 }

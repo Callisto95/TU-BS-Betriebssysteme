@@ -1,0 +1,14 @@
+--- !inherit 01_base.test
+--- !python Using valgrind to detect memory leaks and bad usage patterns
+malus = 1
+exe = Compilation(friendly_main).compile()
+try:
+    import subprocess
+    subprocess.check_output(['valgrind', '--version'])
+except:
+    logging.warning("Valgrind is not installed on your system, skipping valgrind test")
+else:
+    try:
+        exe.run(cmd_prefix=['valgrind', "-q", "--error-exitcode=1", "--leak-check=full"])
+    except:
+        exe.fail_marker(1, "Memory Leak Detected")

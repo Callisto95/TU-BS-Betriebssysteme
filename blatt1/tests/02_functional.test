@@ -1,0 +1,199 @@
+--- !inherit 01_base.test
+--- !source common
+struct list;
+
+/**
+ * @brief Makes sure that the result of an operation is correct.
+ * If the check fails, an error message is printed and the process is terminated
+ * prematurely.
+ * @param result   Actual result.
+ * @param expected Expected result.
+ * @return The actual result.
+ */
+static __attribute__((__unused__)) int check(int result, int expected) {
+	if (result == expected)
+		return result;
+	fprintf(stderr, "CHECK FAILED! Result: %d, expected: %d\n", result,
+	        expected);
+	exit(EXIT_FAILURE);
+}
+
+
+/**
+ * @brief Inserts an element into the list and checks the result.
+ * @param value    Element to be added.
+ * @param expected Expected return value of insertElement().
+ */
+static __attribute__((__unused__))
+void testInsert(struct list *list, int value, int expected) {
+	int result;
+	printf("insert %d: ", value);
+	result = list_append(list, value);
+	printf("%d\n", result);
+	check(result, expected);
+}
+
+
+/**
+ * @brief Removes an element from the list and checks the result.
+ * @param expected Expected return value of removeElement().
+ * @return Value returned by removeElement().
+ */
+static __attribute__((__unused__)) 
+int testRemove(struct list* list, int expected) {
+	int result;
+	fputs("remove: ", stdout);
+	result = list_pop(list);
+	printf("%d\n", result);
+	return check(result, expected);
+}
+
+
+--- !source main
+int main(void) {
+    struct list list = {0};
+    testInsert(&list,  5,  5);
+    testInsert(&list,  5, -1);
+    printf("{{{FINISHED}}}\n");
+    return EXIT_SUCCESS;
+}
+--- !python [empty list]: duplicate insert
+bonus=0.4
+action_desc = "Inserting number 5 twice"
+expect_desc = "Second insertion should fail with (-1)"
+Compilation(common + main).compile().run()
+
+
+--- !source main
+int main(void) {
+    struct list list = {0};
+
+    // Try to insert negative elements
+    testInsert(&list, -2, -1);
+    testInsert(&list, -23, -1);
+    testInsert(&list, 0, 0);
+	// Try to remove a element, should be 0
+	testRemove(&list, 0);
+	// Try to remove a element, should fail
+	testRemove(&list, -1);
+    printf("{{{FINISHED}}}\n");
+    return EXIT_SUCCESS;
+}
+--- !python [empty list]: negative insert
+bonus=0.4
+action_desc = "Inserting a negative number"
+expect_desc = "Insertion should fail with (-1)"
+Compilation(common + main).compile().run()
+
+
+--- !source main
+int main(void) {
+    struct list list = {0};
+    testRemove(&list,  -1);
+    printf("{{{FINISHED}}}\n");
+    return EXIT_SUCCESS;
+}
+--- !python [empty list]: remove from empty list
+bonus=0.4
+action_desc = "Perform a pop() operation on an empty list"
+expect_desc = "Should fail with (-1)"
+Compilation(common + main).compile().run()
+
+
+--- !source main
+int main(void) {
+    struct list list = {0};
+
+    // Insert some elements
+	testInsert(&list,    5,    5);
+	testInsert(&list,   42,   42);
+	testInsert(&list,   23,   23);
+	testInsert(&list, 4711, 4711);
+	testInsert(&list,    1,    1);
+
+	// Try to insert existing element which is currently the last element
+	testInsert(&list,   1,   -1);
+
+    printf("{{{FINISHED}}}\n");
+    return EXIT_SUCCESS;
+}
+--- !python [filled list]: duplicate insert last
+bonus=0.4
+Compilation(common + main).compile().run()
+
+
+--- !source main
+int main(void) {
+    struct list list = {0};
+
+    // Insert some elements
+	testInsert(&list,    5,    5);
+	testInsert(&list,   42,   42);
+	testInsert(&list,   23,   23);
+	testInsert(&list, 4711, 4711);
+	testInsert(&list,    1,    1);
+
+	// Try to insert several existing elements
+	testInsert(&list,   42,   -1);
+	testInsert(&list,   23,   -1);
+	testInsert(&list, 4711,   -1);
+
+
+    printf("{{{FINISHED}}}\n");
+
+    return EXIT_SUCCESS;
+}
+--- !python [filled list]: duplicate insert middle
+bonus=0.4
+Compilation(common + main).compile().run()
+
+
+--- !source main
+int main(void) {
+    struct list list = {0};
+
+    // Insert some elements
+	testInsert(&list,    5,    5);
+	testInsert(&list,   42,   42);
+	testInsert(&list,   23,   23);
+	testInsert(&list, 4711, 4711);
+	testInsert(&list,    1,    1);
+
+	// Try to insert existing element which is currently the first element
+	testInsert(&list,   5,   -1);
+
+    printf("{{{FINISHED}}}\n");
+
+    return EXIT_SUCCESS;
+}
+--- !python [filled list]: duplicate insert first
+bonus=0.4
+Compilation(common + main).compile().run()
+
+
+--- !source main
+int main(void) {
+    struct list list = {0};
+
+    // Insert some elements
+	testInsert(&list,    5,    5);
+	testInsert(&list,   42,   42);
+	testInsert(&list,   23,   23);
+	testInsert(&list, 4711, 4711);
+	testInsert(&list,    1,    1);
+
+	// Try to insert negative elements
+	testInsert(&list,   -1,   -1);
+	testInsert(&list,   -23,  -1);
+
+	// Try to remove the last two inserted elements
+	testRemove(&list, 5);
+	testRemove(&list, 42);
+
+    printf("{{{FINISHED}}}\n");
+
+    return EXIT_SUCCESS;
+}
+--- !python [filled list]: insert negative
+bonus=0.4
+Compilation(common + main).compile().run()

@@ -1,0 +1,156 @@
+--- !inherit 02_functional.test
+--- !source bad_malloc_before
+#include <string.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+/*
+ * ganz boeses malloc:
+ * - grossen Speicherbereich allokieren, falls jemand zu
+ *   wenig Speicher allokiert
+ * - Speicher (auf einen boesen Wert) initialisieren. Wenn
+ *   element->next nicht initialisiert wird, gibt es ein
+ *   SIGSEGV
+ */
+
+__attribute__((__unused__)) void *evil_malloc(size_t s)
+{
+	s *= 4;
+	void *p = malloc(s);
+	if(!p)
+		return NULL;
+	return memset(p,0xff,s);
+}
+
+#define malloc(s) evil_malloc(s)
+
+--- !source bad_malloc_after
+static void handle_sigsegv(int sig)
+{
+	fprintf(stderr, "SIGSEGV: check if the next pointer is properly initialized!\n");
+	exit(EXIT_FAILURE);
+}
+
+int main(int argc, char **argv)
+{
+    struct list list = {0};
+    // SIGSEGV abfangen
+    signal(SIGSEGV, handle_sigsegv);
+    testInsert(&list, 1, 1);
+    testInsert(&list, 2, 2);
+    testRemove(&list, 1);
+    testInsert(&list, 3, 3);
+    testInsert(&list, 1, 1);
+    testRemove(&list, 2);
+    testInsert(&list, 4, 4);
+    for(int x = 5; x < 100; ++x) {
+        testInsert(&list, x, x);
+        testInsert(&list, 4, -1);
+    }
+
+    exit(EXIT_SUCCESS);
+}
+
+--- !python Uninitialized memory region
+bonus=0.4
+c = Compilation(common+bad_malloc_after, before_main=bad_malloc_before)
+c.compile().run()
+
+
+
+--- !source fail_malloc_before
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <errno.h>
+
+/*
+ * malloc soll nach `malloc_limit' Versuchen fehlschlagen.
+ */
+static int malloc_limit;
+static int malloc_cnt;
+static int malloc_failed;
+
+/*
+ * "Fehlerhafte" malloc-Implementierung
+ * Mit `fail_malloc' kann getestet werden, ob die Fehlerbehandlung fuer
+ * malloc korrekt ist.
+ */
+void *fail_malloc(size_t s)
+{
+    malloc_cnt++;
+    if(malloc_cnt < malloc_limit)
+        return malloc(s);
+
+    malloc_failed = 1;
+    errno = ENOMEM;
+    return NULL;
+}
+
+void *fail_calloc(size_t nmemb, size_t size)
+{
+    void *p = fail_malloc(nmemb * size);
+    if (!p)
+        return NULL;
+    return memset(p, 0, nmemb * size);
+}
+
+#define malloc fail_malloc
+#define calloc fail_calloc
+
+--- !source fail_malloc_after
+/*
+ * SIGSEGV abfangen und brauchbare Fehlermeldung ausgeben.
+ */
+static void handle_sigsegv(int sig)
+{
+   fprintf(stderr, "SIGSEGV: check malloc error handling!\n");
+   exit(EXIT_FAILURE);
+}
+
+static void run_until_malloc_fails(void)
+{
+    struct list list = {0};
+	int i = 0;
+	int ret = 0;
+	while(!malloc_failed) {
+		ret = list_append(&list, i);
+		i++;
+	}
+
+	if (ret != -1) {
+		fprintf(stderr, "Your code should signal an error if malloc fails.\n");
+		exit(EXIT_FAILURE);
+	}
+
+	i--;
+
+	// `my_test' braucht das so
+	malloc_failed = 0;
+
+	// Liste wieder leeren
+	for(int k = 0; k < i; k++) {
+		list_pop(&list);
+	}
+}
+
+int main(int argc, char **argv)
+{
+	// SIGSEGV abfangen
+	signal(SIGSEGV,handle_sigsegv);
+
+	// verschiedene Limits fuer malloc durchprobieren
+	for(int l = 0; l < 200; l++) {
+		malloc_limit = l;
+		malloc_cnt = 0;
+		run_until_malloc_fails();
+	}
+	printf("{{{FINISHED}}}");
+	exit(EXIT_SUCCESS);
+}
+
+--- !python Malloc fails to deliver memory
+bonus=0.4
+c = Compilation(common+fail_malloc_after, before_main=fail_malloc_before)
+c.compile().run()

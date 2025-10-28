@@ -1,0 +1,58 @@
+image: gitlab.ibr.cs.tu-bs.de:4567/vss/teaching/v_bs/docker-image:latest
+
+stages:
+  - build
+  - test
+  - present
+
+default:
+  before_script:
+    - ln -fs blatt1/ code
+
+build-code:
+  stage: build
+  script:
+    - cd code && gcc -std=c11 -pedantic -Wall -Wextra -Werror -o lilo lilo.c
+    - exit 0
+    - cd code && make
+
+run-tests:
+  stage: test
+  allow_failure: true
+  script:
+    - cd code && python3 tests/unittest.py --json ".result.json" --result ".result.txt"
+  artifacts:
+    when: always
+    expire_in: never
+    paths:
+      - code/.result.txt
+      - code/.result.json
+
+present-own:
+  stage: present
+  allow_failure: true
+  needs: ["run-tests"]
+  script: >
+    echo "Checking eligibility for present-own...";
+    RESULT=$(cat code/.result.txt | tr -d '\n');
+    echo "Result: $RESULT";
+    if [ "$RESULT" = "own" ]; then
+      echo "Eligible for present-own.";
+    else
+      echo "Not eligible for present-own.";
+      exit 1;
+    fi
+
+present-ml:
+  stage: present
+  needs: ["run-tests"]
+  script: >
+    echo "Checking eligibility for present-ml...";
+    RESULT=$(cat code/.result.txt | tr -d '\n');
+    echo "Result: $RESULT";
+    if [ "$RESULT" = "ml" ] || [ "$RESULT" = "own" ]; then
+      echo "Eligible for present-ml.";
+    else
+      echo "Not eligible for present-ml.";
+      exit 1;
+    fi

@@ -1,0 +1,30 @@
+--- !yaml
+sources:
+  lilo.c:
+    main: true
+cflags: [-std=c11, -D_XOPEN_SOURCE=700, -Wall, -Werror, -pedantic, -g]
+
+--- !source friendly_main
+int main() {
+    list_t list = {0};
+    int r1, r2;
+    (void) r1;
+    (void) r2;
+    // Marker 1
+    for (int i = 0; i < 100; i++)
+        r1 = list_append(&list, i);
+    for (int i = 0; i < 100; i++)
+        r2 = list_pop(&list);
+    exit(EXIT_SUCCESS);
+}
+
+--- !python Compile
+bonus=0.2
+# First we compile the students solution with the given main
+Compilation().compile()
+
+--- !python Append and pop friendly values to check interface
+bonus=0.2
+# Second step, use our minimal main to check interface
+Compilation(friendly_main).compile()
+

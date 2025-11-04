@@ -15,7 +15,11 @@ typedef struct list {
  */
 list_t* allocate_and_initialize_list(void) {
 	list_t* list = malloc(sizeof(list_t));
-	list->head = NULL;
+
+	if (list) {
+		list->head = NULL;
+	}
+
 	return list;
 }
 
@@ -111,6 +115,10 @@ int list_pop(list_t* list) {
 
 int main(void) {
 	list_t* list = allocate_and_initialize_list();
+
+	if (!list) {
+		exit(EXIT_SUCCESS);
+	}
 
 	printf("insert 47: %d\n", list_append(list, 47));
 	printf("insert 11: %d\n", list_append(list, 11));

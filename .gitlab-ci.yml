@@ -20,6 +20,7 @@ run-tests:
   stage: test
   allow_failure: true
   script:
+    - rm -f code/.result.txt code/.result.json
     - cd code && python3 tests/unittest.py --json ".result.json" --result ".result.txt"
   artifacts:
     when: always

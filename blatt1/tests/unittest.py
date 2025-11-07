@@ -535,6 +535,10 @@ class Compilation:
             else:
                 with open(src) as fd:
                     content = fd.read()
+            if not content.endswith("\n"):
+                logging.warning("Missing newline at End of File")
+                content += "\n"
+
             Compilation.testcase_result.code_snippets.append(
                 SourceCode(name=fn, body=content)
             )
@@ -917,6 +921,7 @@ def output_results(results, result_file):
 
     result = ""
     sep = "-"*72
+    earned_points = max(earned_points, 0)
     print(f"\n{sep}\nYou earned {earned_points}/{max_points} points for this task.")
     relative_points = earned_points / max_points
     if relative_points >= PRESENT_OWN_THRESHOLD:

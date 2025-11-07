@@ -1,0 +1,195 @@
+--- !inherit 01_base.test
+--- !yaml
+requirements: [FREE]
+--- !source common
+#include <assert.h>
+
+struct canary {
+	char mem[1024*1024];
+	int can;
+};
+
+extern char* memory;
+extern struct canary canary;
+
+typedef struct {
+	char* start;
+	size_t size;
+	char pattern;
+} allocStat;
+
+static allocStat info[1024*1024];
+
+static int verify(allocStat* block) {
+	for ( int i = 0; i < block->size; i++ ) {
+		if ( block->start[i] != block->pattern ) {
+			fprintf(stderr, "Mismatch at position %d (%x != %x)\n", i,
+                    block->start[i], block->pattern);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int verifyAll() {
+    for (unsigned i = 0; i < 1024*1024; i++) {
+        if (info[i].start != 0) {
+            if ( ! verify(&info[i]))  {
+                return 0;
+            }
+		}
+	}
+    return 1;
+}
+
+static void writePattern(allocStat* block, char pattern) {
+	block->pattern = pattern;
+	for ( int i = 0; i < block->size; i++ ) {
+		block->start[i] = pattern;
+	}
+}
+
+static __attribute__((used)) void* safe_halde_malloc(size_t s) {
+    static char pattern = 1;
+    void * p = halde_malloc(s);
+    if (p == 0) return p;
+
+    assert(     (void*)memory                 <= p && "return value of malloc not in `memory' array");
+    assert( p < (void*)(memory + 1024 * 1024)      && "return value of malloc not in `memory' array");
+    assert( (void*)((char*)p + s) <= (void*)(memory + 1024 * 1024) && "return value of malloc not in `memory` array");
+    assert( (int) 0xdeadb33f == canary.can  && "Written over allowed memory area");
+
+    allocStat *block = &info[(char*)p - (char*)memory];
+    block->start = p;
+    block->size = s;
+
+    writePattern(block, pattern ++);
+    assert(verifyAll() && "Malloc corrupted the memory structure");
+
+
+    return p;
+}
+
+static __attribute__((used)) void safe_halde_free(void *p) {
+    if (p == NULL) {
+        halde_free(p);
+        return;
+    }
+
+    assert(     (void*)memory                 <= p && "return value of malloc not in `memory' array");
+    assert( p < (void*)(memory + 1024 * 1024)      && "return value of malloc not in `memory' array");
+
+    assert(verifyAll() && "Free did corrupt the memory structure");
+
+    halde_free(p);
+
+    allocStat *block = &info[(char*)p - (char*)memory];
+    block->start = 0;
+}
+
+void test_exit() {
+    int chunks = 0;
+    for (unsigned int i = 0; i < 1024*1024; i++) {
+        if (info[i].start != 0) {
+            chunks += 1;
+        }
+    }
+    assert (chunks == 0 && "Testcase Bug: not all blocks where freed");
+
+    printf("{{{FINISHED}}}");
+
+    exit(EXIT_SUCCESS);
+}
+
+
+
+
+--- !source main
+int main(void) {
+    // Allokiere einen Bereich, der problemlos in den HEAP passen sollte
+    void *p = safe_halde_malloc(512);
+    assert (p && "Malloc should not fail");
+
+    safe_halde_free(p);
+
+    test_exit();
+}
+--- !python Simple malloc operation
+malus=0.5
+Compilation(common+main).compile().run()
+
+
+
+--- !source main
+int main(void) {
+    safe_halde_free(NULL);
+    test_exit();
+}
+--- !python halde_free(NULL)
+bonus=0.5
+except_desc = "free of a NULL-pointer should not fail but instead be ignored."
+Compilation(common+main).compile().run()
+
+
+
+--- !source main
+int main(void) {
+    void *p = safe_halde_malloc(0);
+    safe_halde_free(p);
+
+    test_exit();
+}
+--- !python halde_free(halde_malloc(0))
+malus=0.5
+Compilation(common+main).compile().run()
+
+
+
+--- !source main
+#include <errno.h>
+
+#define TOO_LARGE_ALLOC (1024*1024*4)
+#define OTHER_ERROR 23
+
+int main(void) {
+    errno = OTHER_ERROR;
+    void *p2 = safe_halde_malloc(512);
+    assert (p2 && "Malloc should notfail!");
+    assert (errno == OTHER_ERROR && "malloc should not change errno");
+
+    errno = OTHER_ERROR;
+    safe_halde_free(p2);
+    assert (errno == OTHER_ERROR && "free should not change errno");
+
+    errno = OTHER_ERROR;
+    safe_halde_free(NULL);
+    assert (errno == OTHER_ERROR && "free should not change errno");
+
+    errno = OTHER_ERROR;
+    safe_halde_free(safe_halde_malloc(0));
+    assert (errno == OTHER_ERROR && "free should not change errno");
+
+    test_exit();
+}
+--- !python Set errno
+bonus=0.5
+exec_desc = "halde_free should not set errno"
+Compilation(common+main).compile().run()
+
+
+--- !source main
+int main(void) {
+    char *p = halde_malloc(128);
+
+    // Expect SIGABRT
+    halde_free(p+100);
+
+    exit(EXIT_SUCCESS);
+}
+
+--- !python Free checks if it is a it gets a previuosly malloced pointer
+bonus=0.5
+except_desc = "halde_free should check if a given pointer is a valid pointer and otherwise abort."
+import signal
+c = Compilation(main).compile()
+c.run(must_fail=True, retcode_expected = lambda c: c == -signal.SIGABRT)

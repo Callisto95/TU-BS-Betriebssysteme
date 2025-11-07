@@ -1,0 +1,215 @@
+--- !inherit 04_malloc_extended.test
+--- !yaml requirements
+requirements : [FREE, MERGE]
+
+--- !source common_merge
+static __attribute__((unused)) void alloc_all() {
+    // allocate the whole memory in 64 K pieces
+    while (safe_halde_malloc(1 << 16) != 0) { /* empty */ }
+}
+
+static __attribute__((unused)) void free_all() {
+    // free all blocks that we allocated
+    for (unsigned i = 0; i < 1024*1024; i++) {
+        if (info[i].start != 0) {
+            safe_halde_free(info[i].start);
+        }
+    }
+}
+
+static __attribute__((unused)) void* get_block(int block) {
+    // Return the Nth allocated block
+    for (unsigned i = 0; i < 1024*1024; i++) {
+        if (info[i].start != 0) {
+            if (block == 0) {
+                return info[i].start;
+            }
+            block --;
+        }
+    }
+    return 0;
+}
+
+--- !source main
+int main(void) {
+    char *p;
+    // Allocate the whole memory in 64K blocks
+    alloc_all();
+    // Free all block. Without merging this fragmentates the heap totally
+    free_all();
+
+    // Without merging, this malloc 64K+1 will fail
+    p = safe_halde_malloc((1 << 16) + 1);
+    if (!p) halde_print();
+    assert (p && "Free does not merge intervals");
+    safe_halde_free(p);
+
+    free_all();
+    test_exit();
+}
+--- !python Is merging implemented?
+bonus=0.5
+Compilation(common+common_merge+main).compile().run()
+
+
+--- !source main
+int main(void) {
+    char *p;
+    // Allocate all blocks. Free first two blocks (these can be merged!)
+    alloc_all();
+    char *p1 = get_block(0);
+    char *p2 = get_block(1);
+    safe_halde_free(p1);
+    safe_halde_free(p2);
+
+    p = safe_halde_malloc((1 << 17));
+    if (!p) halde_print();
+    assert (p && "Free does not merge intervals at the beginning");
+    safe_halde_free(p);
+
+    free_all();
+    test_exit();
+ }
+
+--- !python Merge first two blocks
+bonus=0.5
+Compilation(common+common_merge+main).compile().run()
+
+--- !source main
+int main(void) {
+    alloc_all();
+    char *p1 = get_block(2);
+    char *p2 = get_block(3);
+    char *p = safe_halde_malloc((1 << 16) * 4);
+    assert (!p && "Malloc shouldn't be possible");
+
+    //free two blocks, expecting merge
+    safe_halde_free(p1);
+    safe_halde_free(p2);
+    //allocate bigger block which should be free after merging
+    char *pa = safe_halde_malloc((1<<16) * 2);
+    assert (pa && "Malloc should be possible");
+
+    free_all();
+    test_exit();
+}
+--- !python Merge with left neighbour
+bonus=0.5
+Compilation(common+common_merge+main).compile().run()
+
+
+--- !source main
+int main(void) {
+    alloc_all();
+    char *p1 = get_block(2);
+    char *p2 = get_block(3);
+    char *p = safe_halde_malloc((1 << 16) * 4);
+    assert (!p && "Malloc shouldn't be possible");
+
+    //free two blocks, expecting merge
+    safe_halde_free(p2);
+    safe_halde_free(p1);
+    //allocate bigger block which should be free after merging
+    char *pa = safe_halde_malloc((1<<16) * 2);
+    assert (pa && "Malloc should be possible");
+
+    free_all();
+    test_exit();
+}
+--- !python Merge with right neighbour
+bonus=0.5
+Compilation(common+common_merge+main).compile().run()
+
+
+--- !source main
+int main(void) {
+    alloc_all();
+    char *p1 = get_block(2);
+    char *p2 = get_block(3);
+    char *p3 = get_block(4);
+    char *p = safe_halde_malloc((1 << 16) * 4);
+    assert (!p && "Malloc shouldn't be possible");
+
+    //free two blocks, expecting merge
+    safe_halde_free(p1);
+    safe_halde_free(p3);
+    safe_halde_free(p2);
+    //allocate bigger block which should be free after merging
+    char *pa = safe_halde_malloc((1<<16) * 3);
+    assert (pa && "Malloc should be possible");
+
+    free_all();
+    test_exit();
+}
+--- !python Merge with both neighbours
+bonus=0.5
+Compilation(common+common_merge+main).compile().run()
+
+
+--- !source main
+int main(void) {
+    // Free in a more complex pattern
+    alloc_all();
+    char *p1 = get_block(1);
+    char *p2 = get_block(2);
+    char *p3 = get_block(3);
+    char *p4 = get_block(4);
+    char *p = safe_halde_malloc((1 << 16) * 4);
+    assert (!p && "Malloc shouldn't be possible");
+
+    safe_halde_free(p2);
+    safe_halde_free(p4);
+    p = safe_halde_malloc((1 << 16) * 4);
+    assert (!p && "Malloc shouldn't be possible");
+
+    safe_halde_free(p1);
+    safe_halde_free(p3);
+    p = safe_halde_malloc((1 << 16) * 4);
+    assert (p && "There should be a piece of memory that is large enough");
+
+    free_all();
+    test_exit();
+ }
+
+--- !python Merge complex order
+bonus=0.5
+Compilation(common+common_merge+main).compile().run()
+
+
+
+--- !source main
+int main(void) {
+    // merge without loosing some blocks
+    alloc_all();
+    char *p1 = get_block(1);
+    char *p2 = get_block(2);
+    char *p3 = get_block(3);
+    char *p4 = get_block(4);
+    char *p = safe_halde_malloc((1 << 16) * 4);
+    assert (!p && "Malloc shouldn't be possible");
+
+    safe_halde_free(p4);
+    safe_halde_free(p2);
+    char *p2_again = safe_halde_malloc((1 << 16) * 1);
+    assert (p2_again && "Malloc should be possible");
+    assert (p2_again == p2 && "Expected to get the same memory region again");
+
+    char *p4_again = safe_halde_malloc((1 << 16) * 1);
+    assert (p4_again && "Malloc should be possible");
+    assert (p4_again == p4 && "Expected to get the same memory region again");
+    safe_halde_free(p4_again);
+    safe_halde_free(p2_again);
+
+    safe_halde_free(p1);
+    safe_halde_free(p3);
+    p = safe_halde_malloc((1 << 16) * 4);
+    assert (p && "There should be a piece of memory that is large enough");
+
+    free_all();
+    test_exit();
+ }
+--- !python Merge complex order without loosing blocks on track
+bonus=0.5
+Compilation(common+common_merge+main).compile().run()
+
+

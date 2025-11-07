@@ -1,0 +1,24 @@
+--- !yaml
+requirements: [MALLOC]
+sources:
+  halde.c: {}
+  halde.h: {}
+  main.c:
+    main: true
+cflags: [-std=c11, -D_XOPEN_SOURCE=700, -Wall, -Werror, -pedantic, -g]
+--- !source main
+int main() {
+    char* m1 = halde_malloc(20);
+    halde_free(m1);
+}
+
+--- !python Compile
+malus=1
+# First we compile the students solution with the given main
+Compilation().compile()
+
+--- !python Malloc and free a friendly amount of memory to check interface
+malus=1
+# Second step, use our minimal main to check interface
+Compilation(main).compile().run()
+

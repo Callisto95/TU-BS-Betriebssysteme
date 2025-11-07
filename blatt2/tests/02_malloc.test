@@ -1,0 +1,218 @@
+--- !inherit 01_base.test
+--- !source common code for all following test cases
+#include <assert.h>
+
+struct canary {
+	char mem[1024*1024];
+	int can;
+};
+
+extern char* memory;
+extern struct canary canary;
+
+// book keeping structure for sanity checking
+typedef struct {
+	char* start;
+	size_t size;
+	char pattern;
+} allocStat;
+
+static allocStat info[1024*1024];
+
+//sanity check block
+static int verify(allocStat* block) {
+	for ( int i = 0; i < block->size; i++ ) {
+		if ( block->start[i] != block->pattern ) {
+			fprintf(stderr, "Mismatch at position %d (%x != %x)\n", i,
+                    block->start[i], block->pattern);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+//sanity check all blocks
+static int verifyAll() {
+    for (unsigned i = 0; i < 1024*1024; i++) {
+        if (info[i].start != 0) {
+            if ( ! verify(&info[i]))  {
+                return 0;
+            }
+		}
+	}
+    return 1;
+}
+
+//write a well known pattern to the memory for later sanity checking
+static void writePattern(allocStat* block, char pattern) {
+	block->pattern = pattern;
+	for ( int i = 0; i < block->size; i++ ) {
+		block->start[i] = pattern;
+	}
+}
+
+//Book keeping wrapper to test for wrong return values of students malloc
+static __attribute__((used)) void* safe_halde_malloc(size_t s) {
+    static char pattern = 1;
+    void * p = halde_malloc(s);
+    if (p == 0) return p;
+
+    assert(     (void*)memory                 <= p && "return value of malloc not in `memory' array");
+    assert( p < (void*)(memory + 1024 * 1024)      && "return value of malloc not in `memory' array");
+    assert( (void*)((char*)p + s) <= (void*)(memory + 1024 * 1024) && "return value of malloc not in `memory` array");
+    assert( (int) 0xdeadb33f == canary.can  && "Written over allowed memory area");
+
+    allocStat *block = &info[(char*)p - (char*)memory];
+    block->start = p;
+    block->size = s;
+
+    writePattern(block, pattern ++);
+    assert(verifyAll() && "Malloc corrupted the memory structure");
+
+
+    return p;
+}
+
+//checkpoint for the testcases to reach at the end
+void test_exit() {
+
+    printf("{{{FINISHED}}}");
+
+    exit(EXIT_SUCCESS);
+}
+
+
+
+
+--- !source main code for "Simple malloc operation"
+int main(void) {
+    // Allokiere einen Bereich, der problemlos in den HEAP passen sollte
+    void *p = safe_halde_malloc(512);
+    assert (p && "Malloc should not fail");
+
+    test_exit();
+}
+--- !python Simple malloc operation
+bonus=1
+Compilation(common+main).compile().run()
+
+
+
+--- !source main
+int main(void) {
+    // Allokiere einen Bereich, der problemlos in den HEAP passen sollte
+    void *p1 = safe_halde_malloc(512);
+    assert (p1 && "Malloc should not fail");
+
+    // Allokiere einen Bereich, der problemlos in den HEAP passen sollte
+    void *p2 = safe_halde_malloc(432);
+    assert (p2 && "Malloc should not fail");
+
+    // Allokiere einen Bereich, der problemlos in den HEAP passen sollte
+    void *p3 = safe_halde_malloc(123);
+    assert (p3 && "Malloc should not fail");
+
+    test_exit();
+}
+--- !python Multiple simple malloc operations
+bonus=0.5
+Compilation(common+main).compile().run()
+
+
+
+--- !source main
+int main(void){
+    //Allokiere exakt so viel Speicher wie möglich
+    void *p = safe_halde_malloc(1024*1024 - 16);
+    assert(p && "malloc should not fail");
+
+    // Überprüfe, ob head richtig initialisiert wurde
+    void *p2 = safe_halde_malloc(512);
+    assert(!p2 && "malloc should fail");
+
+    test_exit();
+}
+--- !python Allocate exactly as much memory as possible
+bonus=0.5
+Compilation(common+main).compile().run()
+
+
+
+--- !source main
+int main(void) {
+    // Allokiere mehr als der HEAP gross sein sollte.
+    void *p = safe_halde_malloc(1024*1024+1);
+    if (p != 0) exit(1);
+
+    test_exit();
+}
+--- !python Allocate more memory than available
+bonus=0.5
+except_desc = "Should fail with (NULL) since we want to have more memory than the implementation is designed to be able to provide"
+Compilation(common+main).compile().run()
+
+
+--- !source main
+int main(void) {
+    // Allokiere den Speicher komplett
+    void *p1 = safe_halde_malloc(1024*1024-16);
+    assert (p1 && "Malloc should not fail");
+    // Jetzt sollte kein Speicher uebrig sein
+    void *p2 = safe_halde_malloc(10);
+    assert (!p2 && "Malloc should fail now");
+
+
+    test_exit();
+}
+--- !python Allocate more memory than available in two steps
+bonus=0.5
+except_desc = "Should fail with (NULL) since we want to have more memory than the implementation is designed to be able to provide"
+Compilation(common+main).compile().run()
+
+
+--- !source main
+#include <errno.h>
+
+#define TOO_LARGE_ALLOC (1024*1024*4)
+#define QUARTER_MEM (1024*1024)/4
+#define OTHER_ERROR 23
+
+int main(void) {
+    // Allokiere mehr als der HEAP gross sein sollte.
+    errno = 0;
+    void *p1 = safe_halde_malloc(TOO_LARGE_ALLOC);
+    assert (!p1 && "Malloc should fail!");
+    assert (errno == ENOMEM && "Errno should be set correctly");
+
+    errno = OTHER_ERROR;
+    p1 = safe_halde_malloc(TOO_LARGE_ALLOC);
+    assert (!p1 && "Malloc should fail!");
+    assert (errno == ENOMEM && "Errno should be set correctly");
+
+    errno = OTHER_ERROR;
+    void *p2 = safe_halde_malloc(512);
+    assert (p2 && "Malloc should not fail!");
+    assert (errno == OTHER_ERROR && "malloc should not change errno");
+
+    void *p3 = safe_halde_malloc(QUARTER_MEM);
+    assert (p3 && "Malloc should not fail!");
+    assert (errno == OTHER_ERROR && "malloc should not change errno");
+
+    void *p4 = safe_halde_malloc(QUARTER_MEM);
+    assert (p4 && "Malloc should not fail!");
+    assert (errno == OTHER_ERROR && "malloc should not change errno");
+
+    void *p5 = safe_halde_malloc(QUARTER_MEM);
+    assert (p5 && "Malloc should not fail!");
+    assert (errno == OTHER_ERROR && "malloc should not change errno");
+
+    void *p6 = safe_halde_malloc(QUARTER_MEM);
+    assert (!p6 && "Malloc should fail!");
+    assert (errno == ENOMEM && "Errno should be set correctly");
+
+    test_exit();
+}
+--- !python Is errno set in case of failure?
+bonus=0.5
+except_desc = "in case of error halde_malloc() should set errno otherwise not."
+Compilation(common+main).compile().run()

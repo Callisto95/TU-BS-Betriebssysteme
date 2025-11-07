@@ -1,0 +1,297 @@
+--- !inherit 01_base.test
+--- !yaml
+requirements: [FREE]
+
+--- !source common code for all following test cases
+#include <errno.h>
+#include <assert.h>
+
+struct canary {
+	char mem[1024*1024];
+	int can;
+};
+
+extern char* memory;
+extern struct canary canary;
+
+// book keeping structure for sanity checking
+typedef struct {
+	char* start;
+	size_t size;
+	char pattern;
+} allocStat;
+
+static allocStat info[1024*1024];
+
+//sanity check block
+static int verify(allocStat* block) {
+	for ( int i = 0; i < block->size; i++ ) {
+		if ( block->start[i] != block->pattern ) {
+			fprintf(stderr, "Mismatch at position %d (%x != %x)\n", i,
+                    block->start[i], block->pattern);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+//sanity check all blocks
+static int verifyAll() {
+    for (unsigned i = 0; i < 1024*1024; i++) {
+        if (info[i].start != 0) {
+            if ( ! verify(&info[i]))  {
+                return 0;
+            }
+		}
+	}
+    return 1;
+}
+
+//write a well known pattern to the memory for later sanity checking
+static void writePattern(allocStat* block, char pattern) {
+	block->pattern = pattern;
+	for ( int i = 0; i < block->size; i++ ) {
+		block->start[i] = pattern;
+	}
+}
+
+//Book keeping wrapper to test for wrong return values of students malloc
+static __attribute__((used)) void* safe_halde_malloc(size_t s) {
+    static char pattern = 1;
+    void * p = halde_malloc(s);
+    if (p == 0) return p;
+
+    assert(     (void*)memory                 <= p && "return value of malloc not in `memory' array");
+    assert( p < (void*)(memory + 1024 * 1024)      && "return value of malloc not in `memory' array");
+    assert( (void*)((char*)p + s) <= (void*)(memory + 1024 * 1024) && "return value of malloc not in `memory` array");
+    assert( (int) 0xdeadb33f == canary.can  && "Written over allowed memory area");
+
+    allocStat *block = &info[(char*)p - (char*)memory];
+    block->start = p;
+    block->size = s;
+
+    writePattern(block, pattern ++);
+    assert(verifyAll() && "Malloc corrupted the memory structure");
+
+
+    return p;
+}
+
+//book keeping wrapper for sanity checking
+static __attribute__((used)) void safe_halde_free(void *p) {
+    if (p == NULL) {
+        halde_free(p);
+        return;
+    }
+
+    assert(     (void*)memory                 <= p && "return value of malloc not in `memory' array");
+    assert( p < (void*)(memory + 1024 * 1024)      && "return value of malloc not in `memory' array");
+
+    assert(verifyAll() && "Free did corrupt the memory structure");
+
+    halde_free(p);
+
+    allocStat *block = &info[(char*)p - (char*)memory];
+    block->start = 0;
+}
+
+//checkpoint for the testcases to reach at the end
+void test_exit() {
+    int chunks = 0;
+    for (unsigned int i = 0; i < 1024*1024; i++) {
+        if (info[i].start != 0) {
+            chunks += 1;
+        }
+    }
+    assert (chunks == 0 && "Testcase Bug: not all blocks where freed");
+
+    printf("{{{FINISHED}}}");
+
+    exit(EXIT_SUCCESS);
+}
+
+
+
+
+--- !source main code for "Simple maloc operation"
+int main(void) {
+    // Allokiere einen Bereich, der problemlos in den HEAP passen sollte
+    void *p = safe_halde_malloc(512);
+    assert (p && "Malloc should not fail");
+
+    safe_halde_free(p);
+
+    test_exit();
+}
+--- !python Simple malloc operation
+malus=0.5
+Compilation(common+main).compile().run()
+
+
+--- !source main
+int main(void) {
+    // Allokiere 512 Byte
+    void *p1 = safe_halde_malloc(512);
+    assert (p1 && "Malloc should not fail");
+
+    halde_print();
+    // Allocate the rest of the memory
+    void *p2 = safe_halde_malloc(1024 * 1024 - 512 - 2 * (8 + 8 + 8));
+    assert (p2 && "Malloc should not fail");
+
+	// Allocate more memory, should be nothing left
+    void *px = safe_halde_malloc(512);
+    assert (px == NULL && "Malloc should fail");
+
+
+	// release mem --> make space for furtehr malloc
+    safe_halde_free(p1);
+
+	// now the freed mem should be reuseable
+    void *p3 = safe_halde_malloc(512);
+    assert (p3 && "Malloc should not fail");
+
+	// cleanup
+	safe_halde_free(p2);
+    safe_halde_free(p3);
+
+
+    test_exit();
+}
+--- !python Reuse first block
+bonus=0.5
+Compilation(common+main).compile().run()
+
+--- !source main
+int main(void) {
+    // Allokiere 512 Byte
+    void *p1 = safe_halde_malloc(512);
+    assert (p1 && "Malloc should not fail");
+
+    halde_print();
+    // Allocate the rest of the memory
+    void *p2 = safe_halde_malloc(1024 * 1024 - 2*512 - 3 * (8 + 8));
+    assert (p2 && "Malloc should not fail");
+
+    // Allokiere 512 Byte
+    void *p3 = safe_halde_malloc(512);
+    assert (p3 && "Malloc should not fail");
+
+    // Allocate more memory, should be nothing left
+    void *px = safe_halde_malloc(512);
+    assert (px == NULL && "Malloc should fail");
+
+
+	// release mem --> make space for furtehr malloc
+    safe_halde_free(p3);
+
+	// now the freed mem should be reuseable
+    p3 = safe_halde_malloc(512);
+    assert (p3 && "Malloc should not fail");
+
+	// cleanup
+    safe_halde_free(p1);
+    safe_halde_free(p2);
+    safe_halde_free(p3);
+
+
+    test_exit();
+}
+--- !python Reuse last block
+bonus=0.5
+Compilation(common+main).compile().run()
+
+
+
+--- !source main
+#include <errno.h>
+
+#define TOO_LARGE_ALLOC (1024*1024+1)
+#define OTHER_ERROR 23
+
+int main(void) {
+    // Allokiere mehr als der HEAP gross sein sollte.
+    errno = 0;
+    void *p1 = safe_halde_malloc(TOO_LARGE_ALLOC);
+    assert (!p1 && "Malloc should fail!");
+    assert (errno == ENOMEM && "Errno should be set correctly");
+
+    errno = OTHER_ERROR;
+    p1 = safe_halde_malloc(TOO_LARGE_ALLOC);
+    assert (!p1 && "Malloc should fail!");
+    assert (errno == ENOMEM && "Errno should be set correctly");
+
+    errno = OTHER_ERROR;
+    void *p2 = safe_halde_malloc(512);
+    assert (p2 && "Malloc should notfail!");
+    assert (errno == OTHER_ERROR && "malloc should not change errno");
+
+    safe_halde_free(p2);
+
+    test_exit();
+}
+--- !python Is errno set in case of failure?
+bonus=0.5
+except_desc = "in case of error halde_free() should set errno otherwise not."
+Compilation(common+main).compile().run()
+
+
+
+--- !source main
+int main(void) {
+    // merge without loosing some blocks
+    char *p1 = safe_halde_malloc((1<<16));
+    char *p2 = safe_halde_malloc((1<<16));
+    char *p3 = safe_halde_malloc((1<<16));
+    char *p4 = safe_halde_malloc((1<<16));
+    char *p5 = safe_halde_malloc((1<<16));
+    char *p6 = safe_halde_malloc((1<<16));
+    char *p7 = safe_halde_malloc((1<<16));
+    char *p8 = safe_halde_malloc((1<<16));
+    char *p9 = safe_halde_malloc((1<<16));
+    char *p10 = safe_halde_malloc((1<<16));
+
+    safe_halde_free(p4);
+    safe_halde_free(p8);
+    safe_halde_free(p2);
+    safe_halde_free(p6);
+    safe_halde_free(p10);
+
+    char *p2_again = safe_halde_malloc((1 << 16) * 1);
+    assert (p2_again && "Malloc should be possible");
+    assert (p2_again == p2 && "Expected to get the same memory region again");
+
+    char *p4_again = safe_halde_malloc((1 << 16) * 1);
+    assert (p4_again && "Malloc should be possible");
+    assert (p4_again == p4 && "Expected to get the same memory region again");
+
+    char *p6_again = safe_halde_malloc((1 << 16) * 1);
+    assert (p6_again && "Malloc should be possible");
+    assert (p6_again == p6 && "Expected to get the same memory region again");
+
+    char *p8_again = safe_halde_malloc((1 << 16) * 1);
+    assert (p8_again && "Malloc should be possible");
+    assert (p8_again == p8 && "Expected to get the same memory region again");
+
+    char *p10_again = safe_halde_malloc((1 << 16) * 1);
+    assert (p10_again && "Malloc should be possible");
+    assert (p10_again == p10 && "Expected to get the same memory region again");
+
+    safe_halde_free(p4_again);
+    safe_halde_free(p8_again);
+    safe_halde_free(p2_again);
+    safe_halde_free(p6_again); 
+    safe_halde_free(p10_again);
+
+
+    safe_halde_free(p1);
+    safe_halde_free(p3);
+    safe_halde_free(p5);
+    safe_halde_free(p7);
+    safe_halde_free(p9);
+    test_exit();
+ }
+--- !python Is "first fit" implemented?
+bonus=0.5
+Compilation(common+main).compile().run()
+

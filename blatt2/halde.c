@@ -1,9 +1,10 @@
 #include "halde.h"
-#include <stdlib.h>
-#include <string.h>
+
+#include <asm-generic/errno-base.h>
 #include <errno.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 /// Magic value for occupied memory chunks.
 #define MAGIC ((void*)0xbaadf00d)
@@ -13,10 +14,12 @@
 
 /// Memory-chunk structure.
 struct mblock {
-	struct mblock *next;
+	struct mblock* next;
 	size_t size;
 	char memory[];
 };
+
+#define MBLOCK_SIZE sizeof(struct mblock)
 
 /// Canary wrapper around the memory, used to detect writes beyond mem.
 /// That is, if we write beyond the boundaries of mem, then we overwrite
@@ -33,7 +36,7 @@ char *memory = (char *) canary.mem;
 /// Pointer to the first element of the free-memory list.
 static struct mblock *head;
 
-/// Helper function to visualise the current state of the free-memory list.
+/// Helper function to visualize the current state of the free-memory list.
 void halde_print(void) {
 	struct mblock* lauf = head;
 
@@ -61,10 +64,43 @@ void halde_print(void) {
 	fflush(stderr);
 }
 
-void *halde_malloc (size_t size) {
-	//MALLOC_NOT_IMPLEMENTED_MARKER: remove this line to activate malloc related test cases
-	// TODO: implement me!
-	return NULL;
+void* halde_malloc (const size_t size) {
+	if (!head) {
+		// simply not enough memory
+		if (size > SIZE + MBLOCK_SIZE) {
+			errno = ENOMEM;
+			return NULL;
+		}
+		
+		// use the initial pointer of the array as a starting block
+		head = (struct mblock*) memory;
+		head->size = size;
+		head->next = NULL;
+		return head->memory;
+	}
+
+	struct mblock* current = head;
+	size_t global_size = current->size + MBLOCK_SIZE;
+	
+	// get to the last block
+	while (current->next) {
+		current = current->next;
+		global_size += current->size + MBLOCK_SIZE;
+	}
+
+	// printf("%lu\n%lu\n%d\n", global_size, global_size + MBLOCK_SIZE + size, SIZE);
+
+	if (global_size + MBLOCK_SIZE + size > SIZE) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	struct mblock* new_block = (struct mblock*) (current->memory + global_size);
+	current->next = new_block;
+	new_block->size = size;
+	new_block->next = NULL;
+	
+	return new_block->memory;
 }
 
 void halde_free (void *ptr) {

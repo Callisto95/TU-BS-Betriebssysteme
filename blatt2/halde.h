@@ -1,5 +1,4 @@
-#ifndef HALDE_H
-#define HALDE_H
+#pragma once
 
 #include <sys/types.h>
 
@@ -31,7 +30,3 @@ void halde_free(void *ptr);
  * behavior with other implementations.
  */
 void halde_print(void);
-
-
-
-#endif

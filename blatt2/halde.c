@@ -1,6 +1,5 @@
 #include "halde.h"
 
-#include <asm-generic/errno-base.h>
 #include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,7 +9,7 @@
 #define MAGIC ((void*)0xbaadf00d)
 
 /// Size of the heap (in bytes).
-#define SIZE (1024*1024*1)
+#define SIZE (1024 * 1024 * 1)
 
 /// Memory-chunk structure.
 struct mblock {
@@ -28,33 +27,33 @@ struct canary {
 	char mem[SIZE];
 	int can;
 };
-struct canary canary = {.mem={0},.can = 0xdeadb33f};
+struct canary canary = {.mem = {0}, .can = 0xdeadb33f};
 
 /// Heap-memory area. Due to the conversion sizeof(memory) does not work, sizeof(canary.mem) works.
-char *memory = (char *) canary.mem;
+char* memory = (char*)canary.mem;
 
 /// Pointer to the first element of the free-memory list.
-static struct mblock *head;
+static struct mblock* head;
 
 /// Helper function to visualize the current state of the free-memory list.
 void halde_print(void) {
 	struct mblock* lauf = head;
 
 	// Empty list
-	if ( head == NULL ) {
+	if (head == NULL) {
 		fprintf(stderr, "(empty)\n");
 		return;
 	}
 
 	// Print each element in the list
 	fprintf(stderr, "HEAD:  ");
-	while ( lauf ) {
-		fprintf(stderr, "(addr: 0x%08zx, off: %7zu, ", (uintptr_t) lauf, (uintptr_t)lauf - (uintptr_t)memory);
+	while (lauf) {
+		fprintf(stderr, "(addr: 0x%08zx, off: %7zu, ", (uintptr_t)lauf, (uintptr_t)lauf - (uintptr_t)memory);
 		fflush(stderr);
 		fprintf(stderr, "size: %7zu)", lauf->size);
 		fflush(stderr);
 
-		if ( lauf->next != NULL ) {
+		if (lauf->next != NULL) {
 			fprintf(stderr, "\n  -->  ");
 			fflush(stderr);
 		}
@@ -64,46 +63,92 @@ void halde_print(void) {
 	fflush(stderr);
 }
 
-void* halde_malloc (const size_t size) {
+void* halde_malloc(const size_t size) {
+	// align: lower 4 bits must be 0
+	// const size_t ALIGN_MASK = MBLOCK_SIZE - 1;
+
+	// size_t size = size_;
+	// if (size & ALIGN_MASK) {
+	// 	// size can't be used properly in conjunction with MBLOCK_SIZE
+	// 	// this helps later when assigning memory sections
+	// 	size = (size & ~ALIGN_MASK) + MBLOCK_SIZE;
+	// }
+
+	/* no alloc
+	 * *head
+	 * [size][next][   mem   ]
+	 * [1008][NULL][         ]
+	 * 1024-(1*16)-(16*0)
+	 */
+	
+	/* one alloc
+	 *             *m1        *head
+	 * [size][next][   mem   ][size][next][   mem   ]
+	 * [ 16 ][FOOD][         ][ 976][NULL][         ]
+	 *                        1024-(2*16)-(16*1)
+	 */
+	
+	/* two alloc
+	 *             *m1                    *m2        *head
+	 * [size][next][   mem   ][size][next][   mem   ][size][next][   mem   ]
+	 * [ 16 ][FOOD][         ][ 16 ][FOOD][         ][ 944][NULL][         ]
+	 *                                               1024-(3*16)-(16*2)
+	 */
+
+	/* free space
+	 *             *m1        *head                              *m2        *1->
+	 * [size][next][   mem   ][size][next][   mem   ][size][next][   mem   ][size][next][   mem   ]
+	 * [ 16 ][FOOD][         ][ 16 ][*1->][         ][ 16 ][FOOD][         ][ 912][NULL][         ]
+	 *                                                                      1024-(4*16)-(16*3)
+	 */
+	
 	if (!head) {
-		// simply not enough memory
-		if (size > SIZE + MBLOCK_SIZE) {
-			errno = ENOMEM;
-			return NULL;
-		}
-		
-		// use the initial pointer of the array as a starting block
-		head = (struct mblock*) memory;
-		head->size = size;
+		// use the initial pointer of the memory as the starting block
+		head = (struct mblock*)memory;
+		head->size = SIZE - MBLOCK_SIZE;
 		head->next = NULL;
-		return head->memory;
 	}
 
 	struct mblock* current = head;
-	size_t global_size = current->size + MBLOCK_SIZE;
-	
-	// get to the last block
-	while (current->next) {
+
+	while (current) {
+		// first fit
+		if (current->size >= size) {
+			break;
+		}
+
 		current = current->next;
-		global_size += current->size + MBLOCK_SIZE;
 	}
 
-	// printf("%lu\n%lu\n%d\n", global_size, global_size + MBLOCK_SIZE + size, SIZE);
-
-	if (global_size + MBLOCK_SIZE + size > SIZE) {
+	// no memory available
+	if (!current) {
 		errno = ENOMEM;
 		return NULL;
 	}
 
-	struct mblock* new_block = (struct mblock*) (current->memory + global_size);
-	current->next = new_block;
-	new_block->size = size;
-	new_block->next = NULL;
+	struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
 	
-	return new_block->memory;
+	printf("mem %p\n", memory);
+	printf("cur %p\n", (void*) current);
+	printf("new %p\n", (void*) new_block);
+	printf("max %p\n", memory + SIZE);
+	printf("del %lu\n", new_block - current);
+	fflush(stdout);
+
+	// if ((char*)new_block > memory + SIZE - MBLOCK_SIZE) {
+		new_block->size = current->size - MBLOCK_SIZE - size;
+		new_block->next = NULL;
+	// }
+
+	head = new_block;
+
+	current->size = size;
+	current->next = MAGIC;
+
+	return current->memory;
 }
 
-void halde_free (void *ptr) {
+void halde_free(void* ptr) {
 	//FREE_NOT_IMPLEMENTED_MARKER: remove this line to activate free related test cases
 
 	//MERGE_NOT_IMPLEMENTED_MARKER: remove this line to activate merge related test cases

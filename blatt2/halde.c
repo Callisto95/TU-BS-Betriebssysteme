@@ -104,7 +104,15 @@ void* halde_malloc(const size_t size) {
 	
 	if (!head) {
 		// use the initial pointer of the memory as the starting block
-		head = (struct mblock*)memory;
+		struct mblock* new_head = (struct mblock*)memory;
+
+		// earlier allocations filled the memory
+		if (new_head->next == MAGIC) {
+			return NULL;
+		}
+
+		head = new_head;
+		
 		head->size = SIZE - MBLOCK_SIZE;
 		head->next = NULL;
 	}
@@ -126,8 +134,6 @@ void* halde_malloc(const size_t size) {
 		return NULL;
 	}
 
-	struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
-	
 	// printf("mem %p\n", memory);
 	// printf("cur %p\n", (void*) current);
 	// printf("new %p\n", (void*) new_block);
@@ -135,10 +141,18 @@ void* halde_malloc(const size_t size) {
 	// printf("del %lu\n", new_block - current);
 	// fflush(stdout);
 
-	new_block->size = current->size - MBLOCK_SIZE - size;
-	new_block->next = NULL;
+	const size_t remaining_size = current->size - MBLOCK_SIZE - size;
 
-	head = new_block;
+	if (remaining_size > MBLOCK_SIZE) {
+		struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
+		new_block->size = remaining_size;
+		new_block->next = NULL;
+
+		head = new_block;
+	} else {
+		head = NULL;
+	}
+
 
 	current->size = size;
 	current->next = MAGIC;

@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
 	halde_print();
 
 	// char* m1 = halde_malloc(10);
-	char* m1 = halde_malloc(1024*1024 - 16);
+	char* m1 = halde_malloc(1024*1024 - 32);
 	printf("m1: is NULL %d\n", m1 == NULL);
 	// printf("%d\n", (void*)((char*)m1 + (1024*1024 - 16)) <= (void*)(memory + 1024 * 1024));
 	printf("mem-addr: %p\n", memory);

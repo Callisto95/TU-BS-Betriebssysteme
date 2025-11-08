@@ -128,17 +128,15 @@ void* halde_malloc(const size_t size) {
 
 	struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
 	
-	printf("mem %p\n", memory);
-	printf("cur %p\n", (void*) current);
-	printf("new %p\n", (void*) new_block);
-	printf("max %p\n", memory + SIZE);
-	printf("del %lu\n", new_block - current);
-	fflush(stdout);
+	// printf("mem %p\n", memory);
+	// printf("cur %p\n", (void*) current);
+	// printf("new %p\n", (void*) new_block);
+	// printf("max %p\n", memory + SIZE);
+	// printf("del %lu\n", new_block - current);
+	// fflush(stdout);
 
-	// if ((char*)new_block > memory + SIZE - MBLOCK_SIZE) {
-		new_block->size = current->size - MBLOCK_SIZE - size;
-		new_block->next = NULL;
-	// }
+	new_block->size = current->size - MBLOCK_SIZE - size;
+	new_block->next = NULL;
 
 	head = new_block;
 

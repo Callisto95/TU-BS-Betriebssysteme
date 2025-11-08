@@ -141,11 +141,11 @@ void* halde_malloc(const size_t size) {
 	// printf("del %lu\n", new_block - current);
 	// fflush(stdout);
 
-	const size_t remaining_size = current->size - MBLOCK_SIZE - size;
+	const long int remaining_space = current->size - MBLOCK_SIZE - size;
 
-	if (remaining_size > MBLOCK_SIZE) {
+	if (remaining_space > (long long) MBLOCK_SIZE) {
 		struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
-		new_block->size = remaining_size;
+		new_block->size = remaining_space;
 		new_block->next = NULL;
 
 		head = new_block;

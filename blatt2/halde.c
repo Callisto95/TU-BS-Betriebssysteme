@@ -134,25 +134,21 @@ void* halde_malloc(const size_t size) {
 		return NULL;
 	}
 
-	// printf("mem %p\n", memory);
-	// printf("cur %p\n", (void*) current);
-	// printf("new %p\n", (void*) new_block);
-	// printf("max %p\n", memory + SIZE);
-	// printf("del %lu\n", new_block - current);
-	// fflush(stdout);
-
 	const long int remaining_space = current->size - MBLOCK_SIZE - size;
 
-	if (remaining_space > (long long) MBLOCK_SIZE) {
+	// does another block fit in the space after?
+	// if so, create one
+	// also prevent implicit casts to unsigned
+	if (remaining_space >= (long long) MBLOCK_SIZE) {
 		struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
 		new_block->size = remaining_space;
 		new_block->next = NULL;
 
 		head = new_block;
 	} else {
+		// the memory is considered full
 		head = NULL;
 	}
-
 
 	current->size = size;
 	current->next = MAGIC;
@@ -161,10 +157,90 @@ void* halde_malloc(const size_t size) {
 }
 
 void halde_free(void* ptr) {
-	//FREE_NOT_IMPLEMENTED_MARKER: remove this line to activate free related test cases
+	if (!ptr) {
+		return;
+	}
+	
+	struct mblock* block = ptr;
+	block--;
+	
+	if (block->next != MAGIC) {
+		abort();
+	}
 
-	//MERGE_NOT_IMPLEMENTED_MARKER: remove this line to activate merge related test cases
+	if (!head) {
+		// memory was filled, no end block exists
+		block->next = NULL;
+		head = block;
+		return;
+	}
 
-	// TODO: implement me!
-	return;
+	if (head > block) {
+		// head (beginning of the list) is after the block, making our block the new head
+		
+		if ((char*)block + MBLOCK_SIZE + block->size == (char*)head) {
+			// head is right after the block
+			block->size = block->size + MBLOCK_SIZE + head->size;
+			block->next = head->next;
+		} else {
+			// head is not right after the block
+			block->next = head;
+		}
+
+		head = block;
+		return;
+	}
+
+	// block is after head
+	// this means there's a pointer going from _before_ block to _after_
+	// or
+	// block is after the end of the list
+
+	struct mblock* current = head;
+	while (current) {
+		if (current < block && current->next > block) {
+			// 3 options:
+			// 1: current is right before block
+			// 2: current->next is right after block
+			// 3: neither, meaning there are allocated blocks before and after block
+
+			// 2 before 1, so that we're pulling free blocks from the back to the front (if possible)
+
+			int has_merged = 0;
+
+			// 2: current->next is right after block
+			if ((char*)block + MBLOCK_SIZE + block->size == (char*)current->next) {
+				block->next = current->next->next;
+				block->size = block->size + MBLOCK_SIZE + current->next->size;
+
+				current->next->size = 0;
+				current->next->next = NULL;
+
+				has_merged = 1;
+			}
+			
+			// 1: current is right before block
+			if ((char*)current + MBLOCK_SIZE + current->size == (char*)block) {
+				// expand current to include block
+				current->size = current->size + MBLOCK_SIZE + block->size;
+				current->next = block->next;
+
+				block->size = 0;
+				block->next = NULL;
+
+
+				has_merged = 1;
+			}
+
+			// no merge possible, block is surrounded by allocated blocks;
+			if (has_merged == 0) {
+				block->next = current->next;
+				current->next = block;
+			}
+
+			break;
+		}
+
+		current = current->next;
+	}
 }

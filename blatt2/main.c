@@ -47,30 +47,35 @@ int main(int argc, char* argv[]) {
 	// fprintf(stderr, "1\n");
 	// halde_print();
 
-	// char* p1 = halde_malloc((1 << 16));
+	char* p1 = halde_malloc((1 << 16));
 	char* p2 = halde_malloc((1 << 16));
-	// char* p3 = halde_malloc((1 << 16));
-	// char* p4 = halde_malloc((1 << 16));
-	// char* p5 = halde_malloc((1 << 16));
-	// char* p6 = halde_malloc((1 << 16));
-	// char* p7 = halde_malloc((1 << 16));
-	// char* p8 = halde_malloc((1 << 16));
-	// char* p9 = halde_malloc((1 << 16));
+	char* p3 = halde_malloc((1 << 16));
+	char* p4 = halde_malloc((1 << 16));
+	char* p5 = halde_malloc((1 << 16));
+	char* p6 = halde_malloc((1 << 16));
+	char* p7 = halde_malloc((1 << 16));
+	char* p8 = halde_malloc((1 << 16));
+	char* p9 = halde_malloc((1 << 16));
 	char* p10 = halde_malloc((1 << 16));
 
-	fprintf(stderr, "p2  %p\n", p2);
-	fprintf(stderr, "p10 %p\n", p10);
-	fflush(stderr);
+	halde_free(p4);
+	halde_free(p8);
+	halde_free(p2);
+	halde_free(p6);
+	halde_free(p10);
+
+	fprintf(stderr, "1\n");
+	halde_print();
 
 	// halde_free(p4);
 	// halde_free(p8);
-	halde_free(p2);
-	
+	// halde_free(p1);
+
 	fprintf(stderr, "2\n");
 	halde_print();
-	
+
 	// halde_free(p6);
-	halde_free(p10);
+	// halde_free(p2);
 
 	fprintf(stderr, "3\n");
 	halde_print();

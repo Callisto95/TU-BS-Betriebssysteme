@@ -134,10 +134,10 @@ void* halde_malloc(const size_t size) {
 		return NULL;
 	}
 
+	// remaining space in block
 	const long int remaining_space = current->size - MBLOCK_SIZE - size;
 
-	// does another block fit in the space after?
-	// if so, create one
+	// does another block fit in the space after? if yes, create one
 	// also prevent implicit casts to unsigned
 	if (remaining_space >= (long long)MBLOCK_SIZE) {
 		struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
@@ -146,8 +146,8 @@ void* halde_malloc(const size_t size) {
 
 		head = new_block;
 	} else {
-		// the memory is considered full
-		head = NULL;
+		// no space to create a block, head must move to the next free block
+		head = head->next;
 	}
 
 	current->size = size;
@@ -215,6 +215,7 @@ void halde_free(void* ptr) {
 
 				current->next->size = 0;
 				current->next->next = NULL;
+				current->next = block;
 
 				has_merged = 1;
 			}

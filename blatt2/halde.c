@@ -35,6 +35,22 @@ char* memory = (char*)canary.mem;
 /// Pointer to the first element of the free-memory list.
 static struct mblock* head;
 
+/**
+ * @brief Fully remove an mblock from memory.
+ *
+ * @details Zero out the memory block as well as any metadata in the mblock.
+ */
+void delete_block(struct mblock* block) {
+	char* current = block->memory;
+	while (current < block->memory + block->size) {
+		*current = 0;
+		current++;
+	}
+
+	block->next = NULL;
+	block->size = 0;
+}
+
 /// Helper function to visualize the current state of the free-memory list.
 void halde_print(void) {
 	struct mblock* lauf = head;
@@ -64,16 +80,6 @@ void halde_print(void) {
 }
 
 void* halde_malloc(const size_t size) {
-	// align: lower 4 bits must be 0
-	// const size_t ALIGN_MASK = MBLOCK_SIZE - 1;
-
-	// size_t size = size_;
-	// if (size & ALIGN_MASK) {
-	// 	// size can't be used properly in conjunction with MBLOCK_SIZE
-	// 	// this helps later when assigning memory sections
-	// 	size = (size & ~ALIGN_MASK) + MBLOCK_SIZE;
-	// }
-
 	/* no alloc
 	 * *head
 	 * [size][next][   mem   ]
@@ -164,6 +170,7 @@ void halde_free(void* ptr) {
 	struct mblock* block = ptr;
 	block--;
 
+	// block is not an allocated block
 	if (block->next != MAGIC) {
 		abort();
 	}
@@ -210,11 +217,11 @@ void halde_free(void* ptr) {
 
 			// 2: current->next is right after block
 			if ((char*)block + MBLOCK_SIZE + block->size == (char*)current->next) {
-				block->next = current->next->next;
-				block->size = block->size + MBLOCK_SIZE + current->next->size;
+				struct mblock* next_block = current->next;
+				block->next = next_block->next;
+				block->size = block->size + MBLOCK_SIZE + next_block->size;
 
-				current->next->size = 0;
-				current->next->next = NULL;
+				delete_block(next_block);
 				current->next = block;
 
 				has_merged = 1;
@@ -225,8 +232,7 @@ void halde_free(void* ptr) {
 				// expand current to include block
 				current->size = current->size + MBLOCK_SIZE + block->size;
 
-				block->size = 0;
-				block->next = NULL;
+				delete_block(block);
 
 				has_merged = 1;
 			}

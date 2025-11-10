@@ -47,6 +47,7 @@ int main(int argc, char* argv[]) {
 	// fprintf(stderr, "1\n");
 	// halde_print();
 
+	/*
 	char* p1 = halde_malloc((1 << 16));
 	char* p2 = halde_malloc((1 << 16));
 	char* p3 = halde_malloc((1 << 16));
@@ -79,6 +80,7 @@ int main(int argc, char* argv[]) {
 
 	fprintf(stderr, "3\n");
 	halde_print();
+	*/
 
 	return 0;
 }

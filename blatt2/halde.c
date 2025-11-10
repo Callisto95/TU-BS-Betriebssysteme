@@ -80,14 +80,14 @@ void* halde_malloc(const size_t size) {
 	 * [1008][NULL][         ]
 	 * 1024-(1*16)-(16*0)
 	 */
-	
+
 	/* one alloc
 	 *             *m1        *head
 	 * [size][next][   mem   ][size][next][   mem   ]
 	 * [ 16 ][FOOD][         ][ 976][NULL][         ]
 	 *                        1024-(2*16)-(16*1)
 	 */
-	
+
 	/* two alloc
 	 *             *m1                    *m2        *head
 	 * [size][next][   mem   ][size][next][   mem   ][size][next][   mem   ]
@@ -101,7 +101,7 @@ void* halde_malloc(const size_t size) {
 	 * [ 16 ][FOOD][         ][ 16 ][*1->][         ][ 16 ][FOOD][         ][ 912][NULL][         ]
 	 *                                                                      1024-(4*16)-(16*3)
 	 */
-	
+
 	if (!head) {
 		// use the initial pointer of the memory as the starting block
 		struct mblock* new_head = (struct mblock*)memory;
@@ -112,7 +112,7 @@ void* halde_malloc(const size_t size) {
 		}
 
 		head = new_head;
-		
+
 		head->size = SIZE - MBLOCK_SIZE;
 		head->next = NULL;
 	}
@@ -139,7 +139,7 @@ void* halde_malloc(const size_t size) {
 	// does another block fit in the space after?
 	// if so, create one
 	// also prevent implicit casts to unsigned
-	if (remaining_space >= (long long) MBLOCK_SIZE) {
+	if (remaining_space >= (long long)MBLOCK_SIZE) {
 		struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
 		new_block->size = remaining_space;
 		new_block->next = NULL;
@@ -160,10 +160,10 @@ void halde_free(void* ptr) {
 	if (!ptr) {
 		return;
 	}
-	
+
 	struct mblock* block = ptr;
 	block--;
-	
+
 	if (block->next != MAGIC) {
 		abort();
 	}
@@ -177,7 +177,7 @@ void halde_free(void* ptr) {
 
 	if (head > block) {
 		// head (beginning of the list) is after the block, making our block the new head
-		
+
 		if ((char*)block + MBLOCK_SIZE + block->size == (char*)head) {
 			// head is right after the block
 			block->size = block->size + MBLOCK_SIZE + head->size;
@@ -218,16 +218,14 @@ void halde_free(void* ptr) {
 
 				has_merged = 1;
 			}
-			
+
 			// 1: current is right before block
 			if ((char*)current + MBLOCK_SIZE + current->size == (char*)block) {
 				// expand current to include block
 				current->size = current->size + MBLOCK_SIZE + block->size;
-				current->next = block->next;
 
 				block->size = 0;
 				block->next = NULL;
-
 
 				has_merged = 1;
 			}
@@ -238,9 +236,13 @@ void halde_free(void* ptr) {
 				current->next = block;
 			}
 
-			break;
+			return;
 		}
 
 		current = current->next;
 	}
+
+	// if we reached this point, then block is after head, but head has no next
+	block->next = NULL;
+	head->next = block;
 }

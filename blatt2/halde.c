@@ -158,9 +158,8 @@ void* halde_malloc(const size_t size) {
 			head = new_block;
 		}
 	} else {
-		// no space to create a block
-		// head should be a guard value, but use NULL instead
-		head = NULL;
+		// no space to create a block, move head along chain
+		head = current->next;
 	}
 
 	current->size = size;

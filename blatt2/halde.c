@@ -153,8 +153,11 @@ void* halde_malloc(const size_t size) {
 		new_block->next = current->next;
 
 		if (previous) {
+			// there exists a block before the new one
+			// update the pointer accordingly
 			previous->next = new_block;
 		} else {
+			// no block is in front of the new block, so new block becomes the first
 			head = new_block;
 		}
 	} else {
@@ -162,6 +165,7 @@ void* halde_malloc(const size_t size) {
 		head = current->next;
 	}
 
+	// alocate block
 	current->size = size;
 	current->next = MAGIC;
 

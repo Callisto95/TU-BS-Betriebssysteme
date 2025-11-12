@@ -124,6 +124,7 @@ void* halde_malloc(const size_t size) {
 	}
 
 	struct mblock* current = head;
+	struct mblock* previous = NULL;
 
 	while (current) {
 		// first fit
@@ -131,6 +132,7 @@ void* halde_malloc(const size_t size) {
 			break;
 		}
 
+		previous = current;
 		current = current->next;
 	}
 
@@ -148,12 +150,17 @@ void* halde_malloc(const size_t size) {
 	if (remaining_space >= (long long)MBLOCK_SIZE) {
 		struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
 		new_block->size = remaining_space;
-		new_block->next = NULL;
+		new_block->next = current->next;
 
-		head = new_block;
+		if (previous) {
+			previous->next = new_block;
+		} else {
+			head = new_block;
+		}
 	} else {
-		// no space to create a block, head must move to the next free block
-		head = head->next;
+		// no space to create a block
+		// head should be a guard value, but use NULL instead
+		head = NULL;
 	}
 
 	current->size = size;

@@ -10,7 +10,7 @@
    to the allocated memory or NULL if the request fails. The
    errno will be set to indicate the error.
 */
-void *halde_malloc(size_t size);
+void* halde_malloc(size_t size);
 
 /*
    halde_free() frees the memory space pointed to by ptr, which must
@@ -20,7 +20,7 @@ void *halde_malloc(size_t size);
 
    RETURN VALUE: no value
 */
-void halde_free(void *ptr);
+void halde_free(void* ptr);
 
 /*
  * halde_print() is a non-standard function which prints the internal

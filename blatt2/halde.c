@@ -148,7 +148,7 @@ void* halde_malloc(const size_t size) {
     // does another block fit in the space after? if yes, create one
     // also prevent implicit casts to unsigned
     if (remaining_space >= (long long)MBLOCK_SIZE) {
-        struct mblock* new_block = (struct mblock*)((char*)current + MBLOCK_SIZE + size);
+        struct mblock* new_block = (struct mblock*)(current->memory + size);
         new_block->size = remaining_space;
         new_block->next = current->next;
 

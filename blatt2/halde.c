@@ -161,11 +161,17 @@ void* halde_malloc(const size_t size) {
             head = new_block;
         }
     } else {
-        // no space to create a block, move head along chain
-        head = current->next;
+        // no space to create a block, so either...
+        if (previous) {
+            // ...skip the empty space...
+            previous->next = current->next;
+        } else {
+            // ...or we were at the first block
+            head = current->next;
+        }
     }
 
-    // alocate block
+    // allocate block
     current->size = size;
     current->next = MAGIC;
 

@@ -359,7 +359,7 @@ class Testcase:
         else:
             b = self.variables.get("bonus", 0)
             if not b and not self.variables.get("malus"):
-                sys.exit("Invalid Testcase: No points defined")
+                sys.exit(F"Invalid Testcase '{' '.join(args)}' in {os.path.basename(self.testcase)}: No points defined")
             ret.points = b
             self.points += b
             logging.info(f"...    OK ({b} points)")

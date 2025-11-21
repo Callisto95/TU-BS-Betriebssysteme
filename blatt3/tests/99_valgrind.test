@@ -1,0 +1,20 @@
+--- !inherit 02_base.test
+
+--- !yaml
+requirements: [CRAWL] #global requirement for all this testcases
+
+
+--- !python simple valgrind invocation
+malus=2
+exe = Compilation().compile()
+try:
+    exe.run(cmd_prefix=['valgrind', '--version'])
+except:
+    logging.warning("Valgrind is not installed on your system, skipping valgrind test")
+else:
+    try:
+        r,_ = exe.run(cmd_prefix=['valgrind', "-q", "--error-exitcode=1", "--leak-check=full"],
+                    args=['..', '-name="*test"', '-size=+4', '-line=valgrind'])
+        print(r)
+    except:
+        exe.fail_marker(1, "Memory Leak Detected")

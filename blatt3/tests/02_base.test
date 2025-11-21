@@ -1,0 +1,15 @@
+--- !yaml
+sources:
+  argumentParser.h: {}
+  argumentParser.c: {}
+  crawl.c:
+    main: true
+cflags: [-std=c11, -D_XOPEN_SOURCE=700, -Wall, -Werror, -pedantic, -g]
+
+requirements: [CRAWL]
+
+--- !python Compile
+malus = 1
+# First we compile the students solution with the given main
+Compilation().compile()
+

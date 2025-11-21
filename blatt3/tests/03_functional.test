@@ -1,0 +1,333 @@
+--- !inherit 02_base.test
+
+--- !yaml
+requirements: [CRAWL] #global requirement for all this testcases
+
+--- !python compile crawl and prepare folder
+malus = 0.5
+exe = Compilation().compile()
+
+import tempfile
+import subprocess
+def prepare_folder():
+    global tempdir
+    if globals().get('tempdir'):
+        return tempdir
+    osp= os.path
+    j = osp.join
+    t = j(exe.tmpdir, "__testdir")
+    os.mkdir(t)
+    print(t)
+    tempdir = t
+    l1 = 'printf("\tOption %s has value %s\n", "a", getValueForOption("a"));\n'
+    l2 = '	printf("Command: %s\n", getCommand());'
+    l3 = 'int main(int argc, char* argv[]) {'
+    l4 = 'printf("\tOption %s has value %s\n", "d", pront getValueForOption("d"));\n'
+    l5 = 'pr__uintf("\tOption %s has value %s\n", "d", pront getValueForOption("d"));\n'
+    lines = [l1,l2,l3,l4,l5]
+
+    with open(j(t, 'empty.file'), 'w') as f:
+        pass
+    with open(j(t, 'hello_world.c'), 'w') as f:
+        f.writelines(lines)
+        pass
+    with open(j(t, 'hello_world.h'), 'w') as f:
+        f.writelines(lines)
+        f.writelines(lines)
+        pass
+    with open(j(t, 'big_hello_world.c'), 'w') as f:
+        for i in range(50):
+            f.writelines(lines)
+        pass
+    try:
+        os.mkdir(j(t,'a'))
+    except FileExistsError:
+        pass
+    try:
+        os.mkdir(j(t,'a/b'))
+    except FileExistsError:
+        pass
+    try:
+        os.mkdir(j(t,'a/b/c'))
+    except FileExistsError:
+        pass
+    try:
+        os.mkdir(j(t,'a/b/c/d'))
+    except FileExistsError:
+        pass
+
+    with open(j(tempdir,'a/b/c/d', 'hello_foo'), 'w') as f:
+        f.writelines(lines)
+        pass
+    with open(j(t,'a/b/c/', 'big_hello_world.c'), 'w') as f:
+        for i in range(51):
+            f.writelines(lines)
+        pass
+    try:
+        os.mkfifo(j(t,'fifo'))
+    except:
+        pass
+    return tempdir
+
+def check_size(lines, pred):
+    for fp in lines.splitlines():
+        size = os.path.getsize(fp)
+        if not pred(size):
+            return False
+    return True
+
+def print_comparison(args, actual_result):
+    try:
+        expected_result = subprocess.check_output(['/ibr/courses/ws2526/bs/blatt3/crawl'] + args)
+        logging.info("Deine Ausgabe:\n" + actual_result)
+        logging.info("Musterausgabe:\n" + expected_result.decode())
+    except:
+        logging.info("Beispiel crawl unter /ibr/courses/ws2425/bs/blatt3/aufgabe3/crawl ist nicht verfügbar. "
+                     "Führe diesen Test auf x1.ibr.cs.tu-bs.de aus, um deine Ausgabe mit der der Musterlösung zu vergleichen")
+        pass
+
+--- !python simple run without filters
+bonus=0.5
+args = ""
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+if not result.strip() or result.strip().count('\n') != 10:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 11 Zeilen für die 11 gefundenen Dateien ausgegeben werden.")
+
+--- !python simple run without filters, single file as argument
+bonus=0.5
+args = "/hello_world.c"
+f = prepare_folder()
+args = str(f) + str(args)
+args = args.split()
+result,_ = exe.run(args=args)
+if not result.strip() or result.strip().count('\n') != 0:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 1 Zeile für die 1 gefundene Datei ausgegeben werden.")
+
+--- !python simple run with several paths and one explicit given file
+bonus=0.5
+f = prepare_folder()
+arg1 = (str(f) + "/hello_world.c").split()
+arg2 = (str(f) + "/a/b/c").split()
+arg3 = (str(f) + "/a/b").split()
+args = arg1 + arg2 + arg3
+result,_ = exe.run(args=args)
+if not result.strip() or result.strip().count('\n') != 9:
+    print(result.strip().count('\n'))
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 10 Zeilen für die 10 gefundenen Dateien ausgegeben werden.")
+
+--- !python maxdepth 0
+bonus=0.5
+args = "-maxdepth=0"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+if not result.strip() or result.strip().count('\n') != 0:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau eine Zeile für eine gefundene Datei ausgegeben werden.")
+
+--- !python maxdepth 1
+bonus=0.5
+args = "-maxdepth=1"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+if not result.strip() or result.strip().count('\n') != 5:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 6 Zeilen für die 6 gefundenen Dateien ausgegeben werden.")
+
+--- !python maxdepth 3
+bonus=0.5
+args = "-maxdepth=3"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+if not result.strip() or result.strip().count('\n') != 7:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 8 Zeilen für die 8 gefundenen Dateien ausgegeben werden.")
+
+--- !python size smaller 1
+bonus=0.25
+exe.check_requirements(["SIZE"])
+args = "-size=-1"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+if not check_size(result, lambda s: s < 1):
+    print_comparison(args, result)
+    raise RuntimeError("Für -size=-1 wurden Dateien gefunden die diesem Filter nicht entsprechen")
+
+--- !python size smaller 600
+bonus=0.25
+exe.check_requirements(["SIZE"])
+args = "-size=-600"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+if not check_size(result, lambda s: s < 600):
+    print_comparison(args, result)
+    raise RuntimeError("Für -size=-600 wurden Dateien gefunden die diesem Filter nicht entsprechen")
+
+--- !python size bigger 800
+bonus=0.25
+exe.check_requirements(["SIZE"])
+args = "-size=+800"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+if not check_size(result, lambda s: s > 800):
+    print_comparison(args, result)
+    raise RuntimeError("Für -size=+800 wurden Dateien gefunden die diesem Filter nicht entsprechen")
+
+--- !python size equal 14100
+bonus=0.25
+exe.check_requirements(["SIZE"])
+args = "-size=14100"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+result = result.strip()
+if not result or result.count('\n') != 0:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 1 Zeilen für die 1 gefundenen Dateie ausgegeben werden.")
+
+
+--- !python name
+bonus=1
+exe.check_requirements(["NAME"])
+args = "-name=*.c"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+for line in result.strip().split('\n'):
+    if not line.endswith(".c"):
+        print_comparison(args, result)
+        raise RuntimeError()
+
+--- !python line
+bonus=1
+exe.check_requirements(["LINE"])
+args = "-line=print"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+for line in result.strip().split('\n'):
+    if not"print" in line:
+        print_comparison(args, result)
+        raise RuntimeError()
+
+--- !python line uses extended regex
+bonus=0.5
+exe.check_requirements(["LINE"])
+import re
+p = re.compile('.*pr.+t.*')
+args = "-line=pr.+t"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+for line in result.strip().split('\n'):
+    if not p.match(line):
+        print_comparison(args, result)
+        raise RuntimeError()
+
+
+
+--- !python type d
+bonus=0.5
+exe.check_requirements(["TYPE"])
+f = prepare_folder()
+args = '-type=d'
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+result = result.strip()
+if not result or result.count('\n') != 4:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 5 Zeilen für die 5 gefundenen Verzeichnisse ausgegeben werden.")
+
+
+--- !python type f
+bonus=0.5
+exe.check_requirements(["TYPE"])
+f = prepare_folder()
+args = '-type=f'
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+result = result.strip()
+if not result or result.count('\n') != 5:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 6 Zeilen für die 6 gefundenen Dateien ausgegeben werden.")
+
+
+--- !python maxdepth 0 & type combined
+bonus=0.5
+args = "-maxdepth=0 -type=d"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+result,_ = exe.run(args=args)
+if not result.strip() or result.strip().count('\n') != 0:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 1 Zeilen für die 1 gefundenen Dateien ausgegeben werden.")
+
+
+--- !python mehrere Pfade
+bonus=1
+f = prepare_folder()
+args = [f, os.path.join(f,'a')]
+result,_ = exe.run(args=args)
+result = result.strip()
+if not result or result.count('\n') != 16:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 17 Zeilen für die 17 gefundenen Objekte ausgegeben werden.")
+
+
+--- !python correct information for links
+bonus=0.5
+f = prepare_folder()
+args = []
+args.append(f)
+
+# lstat is now newfstatat
+run_results, syscalls = exe.strace(syscalls="newfstatat", args=args)
+
+lstat = False
+for line in syscalls:
+	if "AT_SYMLINK_NOFOLLOW" in line:
+		lstat = True
+		break
+
+# lstat syscall not found -> wrong one is used
+if not lstat:
+	raise RuntimeError("Es werden nicht die richtigen Informationen über Verknüpfungen ausgelesen")
+
+
+--- !python all
+malus=3
+exe.check_requirements(["NAME", "LINE", "SIZE", "TYPE"])
+args = "-name=*.c -line=pr.+t -size=-4096 -type=f"
+f = prepare_folder()
+args = args.split()
+args.insert(0,f)
+args.insert(0,f+'/a/..')
+result,_ = exe.run(args=args)
+if not result or result.count('\n') != 12:
+    print_comparison(args, result)
+    raise RuntimeError("Es sollten genau 13 Zeilen für die 13 gefundenen Zeilen ausgegeben werden.")
+

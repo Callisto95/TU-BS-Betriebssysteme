@@ -1,0 +1,444 @@
+--- !yaml
+sources:
+  argumentParser.h: {}
+  argumentParser.c: {}
+  __main.c: { main: true, content: ""}
+cflags: [-std=c11, -D_XOPEN_SOURCE=700, -Wall, -Werror, -pedantic, -g]
+
+requirements: [ARGUMENT_PARSER] #global requirement for all testcases
+
+--- !source common
+#include "argumentParser.h"
+#include <stdarg.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
+#define error(...) do { fprintf(stderr, __VA_ARGS__); exit(1); } while(0)
+static int error;
+static void die(char *msg) {
+	perror(msg);
+	exit(EXIT_FAILURE);
+}
+
+static int strcmpX(char *a, char *b) {
+  if (NULL == a && NULL == b)
+	return 0;
+  if (NULL == a)
+	return -1;
+  if (NULL == b)
+	return 1;
+  return strcmp(a,b);
+}
+
+static void assertCommand(char *should) {
+  if (strcmpX(getCommand(), should))
+	error("command is '%s' but should be '%s'\n", getCommand(), should);
+}
+
+static void assertOption(char *option, char *should) {
+  char *is = getValueForOption(option);
+  if (strcmpX(is, should))
+	error("option value -%s is '%s' but should be '%s'\n", option, is, should);
+}
+
+static void assertNargs(int nargs) {
+  int is = getNumberOfArguments();
+  if (nargs != is)
+	error("number of arguments is %d but should be %d\n", is, nargs);
+}
+
+static void assertArg(int n, char *should) {
+  char *is = getArgument(n);
+  if (strcmpX(is, should))
+	error("argument %d is '%s' but should be '%s'\n", n, is, should);
+}
+
+static void callInit(int exp, int argc, char **argv) {
+  int is = initArgumentParser(argc, argv);
+  if (exp != is)
+	error("initArgumentParser() returned %d but should be %d (errno is: %s)\n", is, exp, strerror(errno));
+}
+
+static void startTest(int fail, int argc, char **argv) {
+  fprintf(stderr, "TEST: ");
+  for (int i = 0; i < argc; ++i)
+	fprintf(stderr, "%s ", argv[i]);
+  fprintf(stderr, "\n");
+  callInit(fail ? -1 : 0, argc, argv);
+}
+
+static void __attribute__ ((unused)) testArgs(int argc, char **argv) {
+  startTest(0, argc, argv);
+  assertCommand(argv[0]);
+  int nargs = -1;
+  for(int i = 1; i < argc; ++i) {
+	if (argv[i][0] == '-' && strchr(argv[i], '=')) {
+	  nargs = i-1;
+	  break;
+	}
+  }
+  if (nargs < 0)
+	nargs = argc - 1;
+  fprintf(stderr, "#args=%d, #options=%d\n", nargs, argc - nargs - 1);
+  assertNargs(nargs);
+  for (int i = 0; i < nargs; ++i) {
+	assertArg(i, argv[i+1]);
+  }
+  for (int i = nargs + 1; i < argc; ++i) {
+	char *sep = strchr(argv[i], '=');
+	if (!sep) {
+	  error("invalid option %s\n", argv[i]);
+	  continue;
+	}
+	size_t namelen = (sep - argv[i]); /* include '=' */
+	char buf[namelen];
+	strncpy(buf, argv[i] + 1, namelen);
+	buf[namelen - 1] = '\0'; /* replace '=' */
+	fprintf(stderr, "test option -%s\n", buf);
+	char *val = sep + 1;
+	assertOption(buf, val);
+  }
+  exit(error);
+}
+
+static char **addArg(char **argv, size_t i, const char *str) {
+  argv = realloc(argv, (i + 2) * sizeof(*argv));
+  if (argv == NULL)
+	die("realloc");
+  argv[i] = strdup(str);
+  if (argv[i] == NULL)
+	die("strdup");
+  return argv;
+}
+
+// We need to copy the string contents of the argv array because it is perfectly
+// legal for the argumentParser module to (temporarily) modify them.
+static char  __attribute__ ((unused)) **buildArgv(const char str0[], ...) {
+  if (str0 == NULL) {
+	fputs("argv must have at least one element\n", stderr);
+	exit(EXIT_FAILURE);
+  }
+  size_t i = 0;
+  char **argv = addArg(NULL, i++, str0);
+  va_list strings;
+  va_start(strings, str0);
+  for (;;) {
+	const char *str = va_arg(strings, const char *);
+	if (str == NULL)
+	  break;
+	argv = addArg(argv, i++, str);
+  }
+  va_end(strings);
+  argv[i] = NULL;
+  return argv;
+}
+
+static void  __attribute__ ((unused)) destroyArgv(char **argv) {
+  return;
+  /* "The parameters argc and argv and the strings pointed to by the argv array
+     shall be modifiable by the program, and retain their last-stored values
+     between program startup and program termination." C-Standard */
+  // for (size_t i = 0; argv[i] != NULL; ++i) {
+  // 	free(argv[i]);
+  // }
+  // free(argv);
+}
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", NULL);
+  startTest(0, 1, args);
+  assertCommand("command");
+  assertNargs(0);
+  destroyArgv(args);
+  (void)testArgs;
+}
+
+--- !python  command ok
+bonus = 0.25
+Compilation.check_requirements(["COMMAND"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "arg", NULL);
+  startTest(0, 2, args);
+  assertCommand("command");
+  assertNargs(1);
+  assertArg(0, "arg");
+  destroyArgv(args);
+}
+
+--- !python  single arg
+bonus = 0.25
+Compilation.check_requirements(["COMMAND"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "arg0", "arg1",  NULL);
+  startTest(0, 3, args);
+  assertCommand("command");
+  assertNargs(2);
+  assertArg(0, "arg0");
+  assertArg(1, "arg1");
+  destroyArgv(args);
+}
+
+--- !python  multiple args
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "arg", "-option=val", NULL);
+  startTest(0, 3, args);
+  assertCommand("command");
+  assertNargs(1);
+  assertArg(0, "arg");
+  assertOption("option", "val");
+  destroyArgv(args);
+}
+
+--- !python  single option
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "-option=val", "-no-option",  NULL);
+  startTest(1, 3, args);
+  destroyArgv(args);
+}
+
+--- !python  handle incomplete options
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "-empty=", NULL);
+  startTest(0, 2, args);
+  assertCommand("command");
+  assertNargs(0);
+  assertOption("empty","");
+  destroyArgv(args);
+}
+
+--- !python  empty option
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "-no-option", "-empty=", "-option=val", NULL);
+  startTest(0, 4, args);
+  assertCommand("command");
+  assertNargs(1);
+  assertOption("empty","");
+  assertOption("option","val");
+  destroyArgv(args);
+}
+
+--- !python  accept args with leading minus
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "arg", "-option=val", "-o2=v2", NULL);
+  startTest(0, 4, args);
+  assertOption("option", "val");
+  assertOption("o2", "v2");
+  assertOption("nonExistent", NULL);
+  destroyArgv(args);
+}
+
+--- !python  get non existent option
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "-option=val1", "-option=val2", NULL);
+  startTest(0, 3, args);
+  assertNargs(0);
+  assertOption("option", "val1");
+  destroyArgv(args);
+}
+
+--- !python  use options without args given
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "-option=strange=value", NULL);
+  startTest(0, 2, args);
+  assertNargs(0);
+  assertOption("option", "strange=value");
+  destroyArgv(args);
+}
+
+--- !python  values containing =
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "-option=val", "additional_arg", NULL);
+  startTest(1, 3, args);
+  destroyArgv(args);
+}
+
+--- !python  do not accept arguments at the end of argv
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "arg", "-option=val", "additional_arg", NULL);
+  startTest(1, 4, args);
+  destroyArgv(args);
+}
+
+--- !python  do not accept additional arg at the end of argv
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "-option=val", "-second_option=second_val", NULL);
+  startTest(0, 3, args);
+  assertOption("option", "val");
+  assertOption("option", "val");
+  assertOption("second_option", "second_val");
+  assertOption("second_option", "second_val");
+  destroyArgv(args);
+}
+
+--- !python  use option with underscore in name
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "do-not-use-strtok", "-because==values-can-start-with-delimiter", NULL);
+  startTest(0, 3, args);
+  assertNargs(1);
+  assertArg(0, "do-not-use-strtok");
+  assertOption("because", "=values-can-start-with-delimiter");
+  destroyArgv(args);
+}
+
+--- !python  do not use strtok
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+--- !source main
+int main() {
+  char **args = buildArgv("command", "do-not-use-glob", "-because_reason=keys-may-contain-stars", NULL);
+  startTest(0, 3, args);
+  assertNargs(1);
+  assertArg(0, "do-not-use-glob");
+  assertOption("because*", NULL);
+  destroyArgv(args);
+}
+
+--- !python  do not use glob for key matching in argparser
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+# First we compile the students solution with the given main
+Compilation(before_main=common, after_main=main).compile().run()
+
+--- !yaml
+sources:
+  argumentParser.h: {}
+  argumentParser.c: { main: true}
+
+--- !source bad_malloc
+
+void * bad_malloc(size_t s) {
+    fprintf(stderr, "malloc is not allowed");
+    exit(1);
+    return NULL;
+}
+void * bad_calloc(size_t n, size_t s) {
+    return bad_malloc(s);
+}
+
+--- !source main
+char c[]="cmd", a1[]="arg1", a2[]="arg2", o[]="-opt_name=my_value", e[]="";
+char * (testcase_args[]) = {(char *)&c, (char *)&a1, (char *)&a2, (char *)&o, (char *)&e};
+int main(void) {
+  initArgumentParser(4, testcase_args);
+  assertNargs(2);
+  assertArg(0, "arg1");
+  assertOption("opt_name", "my_value");
+}
+
+--- !python do not use malloc
+bonus = 0.25
+Compilation.check_requirements(["COMMAND", "ARG", "OPTION"])
+
+remap = {"malloc":"bad_malloc",
+         "calloc":"bad_calloc",}
+Compilation(before_main=common+bad_malloc, after_main=main).compile(remap=remap).run()

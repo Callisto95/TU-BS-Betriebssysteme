@@ -53,7 +53,7 @@ char* getCommand(void);
  * @return The value associated with the given key, or @c NULL if no such pair
  *         exists.
  */
-char* getValueForOption(char* keyName);
+char* getValueForOption(const char* keyName);
 
 /**
  * @brief Retrieves the number of arguments.

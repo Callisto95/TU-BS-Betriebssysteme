@@ -75,6 +75,8 @@ int main(const int argc, char* argv[]) {
     printf("argCount: %d\n", getNumberOfArguments());
     printf("0arg:     %s\n", getArgument(0));
     printf("1arg:     %s\n", getArgument(1));
-    printf("value:    %s\n", getValueForOption("option"));
+    printf("0arg:     %s\n", getArgument(2));
+    printf("EValue:   %s\n", getValueForOption("empty"));
+    printf("OValue:   %s\n", getValueForOption("option"));
     // TODO: invoke crawl() with args on all given paths
 }

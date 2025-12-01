@@ -149,7 +149,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
 
     // path must be a dir from now on
 
-    if (isSet(type, ONLY_DIRECTORY) && matchName(path, pattern) && size == 0) {
+    if (isSet(type, ONLY_DIRECTORY)) {
         printf("%s\n", path);
     }
 

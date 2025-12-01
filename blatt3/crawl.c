@@ -15,6 +15,14 @@
 
 #include "argumentParser.h"
 
+#define FILE 1
+#define DIRECTORY 2
+#define BOTH FILE | DIRECTORY
+
+int isSet(const int value, const int flag) {
+    return (value & flag) == flag;
+}
+
 int isValidPath(const char* path) {
     struct stat status;
     stat(path, &status);
@@ -74,7 +82,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
     }
 
     if (isFile(path)) {
-        if (checkFile(path, pattern, sizeMode, size, line_regex)) {
+        if (isSet(type, FILE) && checkFile(path, pattern, sizeMode, size, line_regex)) {
             printf("%s\n", path);
         }
         return;
@@ -86,7 +94,9 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
         return;
     }
 
-    printf("%s\n", path);
+    if (isSet(type, DIRECTORY)) {
+        printf("%s\n", path);
+    }
 
     DIR* directory = opendir(path);
     struct dirent* current_entry;
@@ -111,24 +121,44 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
 }
 
 int getMaxDepth(void) {
-    char* depthString = getValueForOption("maxdepth");
+    const char* depthString = getValueForOption("maxdepth");
 
     if (depthString == NULL) {
         return INT_MAX;
     }
 
-    return strtol(depthString, NULL, 10);
+    const long int result = strtol(depthString, NULL, 10);
+
+    return result < 0 ? 0 : result;
 }
 
-int main(int argc, char* argv[]) {
+int getType(void) {
+    const char* typeString = getValueForOption("type");
+
+    if (typeString == NULL || strlen(typeString) != 1) {
+        return BOTH;
+    }
+
+    switch (typeString[0]) {
+    case 'd':
+        return DIRECTORY;
+    case 'f':
+        return FILE;
+    default:
+        return BOTH;
+    }
+}
+
+int main(const int argc, char* argv[]) {
     initArgumentParser(argc, argv);
 
     const int maxDepth = getMaxDepth();
+    const int type = getType();
 
     int i = 0;
     char* current_directory;
     while ((current_directory = getArgument(i)) != NULL) {
-        crawl(current_directory, maxDepth, "", 'd', 1, 2, NULL);
+        crawl(current_directory, maxDepth, "", type, 1, 2, NULL);
         i++;
     }
 }

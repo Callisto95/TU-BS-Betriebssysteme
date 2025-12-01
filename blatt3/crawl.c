@@ -17,6 +17,8 @@ int isValidPath(const char* path) {
     struct stat status;
     stat(path, &status);
 
+    printf("%s: dir: %d, reg: %d\n", path, S_ISDIR(status.st_mode), S_ISREG(status.st_mode));
+
     if (S_ISDIR(status.st_mode) || S_ISREG(status.st_mode)) {
         return 1;
     }
@@ -53,38 +55,12 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
             continue;
         }
 
-        // printf("%s | %s\n", newPath, current_entry->d_name);
         printf("%s\n", newPath);
         crawl(newPath, maxDepth - 1, pattern, type, sizeMode, size, line_regex);
     }
 
     closedir(directory);
 }
-
-// int main(const int argc, char* argv[]) {
-//     argv++;
-//     char** args = argv;
-//     // initArgumentParser(argc, argv);
-//
-//     // char **args = buildArgv("command", NULL);
-//     // char **args = buildArgv("command", "arg", NULL);
-//
-//     // this creates read-only memory
-//     // char* args[] = {"command", "arg", "-name=value", NULL};
-//     printf("init: %d\n", initArgumentParser(argc - 1, args));
-//     // printf("init: %d\n", initArgumentParser(sizeof(args) / sizeof(args[0]), args));
-//
-//     // char* f_argv[] = {"command", "ok"};
-//     // printf("%d\n", initArgumentParser(sizeof(f_argv) / sizeof(f_argv[0]), f_argv));
-//     printf("command:  %s\n", getCommand());
-//     printf("argCount: %d\n", getNumberOfArguments());
-//     printf("0arg:     %s\n", getArgument(0));
-//     printf("1arg:     %s\n", getArgument(1));
-//     printf("0arg:     %s\n", getArgument(2));
-//     printf("EValue:   %s\n", getValueForOption("empty"));
-//     printf("OValue:   %s\n", getValueForOption("option"));
-//     // TODO: invoke crawl() with args on all given paths
-// }
 
 int main(int argc, char* argv[]) {
     argc--;

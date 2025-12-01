@@ -118,14 +118,14 @@ int checkFile(const char* file, const char pattern[], const int sizeMode, const 
 
     const int fileSize = getFileSize(fp);
 
-    if (checkLineRegex) {
+    const bool nameMatches = checkNamePattern ? matchName(file, pattern) : true;
+    const bool sizeMatches = size == 0 || (size >= 0 ? fileSize > size : fileSize < -size);
+
+    if (checkLineRegex && nameMatches && sizeMatches) {
         matchLines(file, fp, line_regex);
     }
 
     fclose(fp);
-
-    const bool nameMatches = checkNamePattern ? matchName(file, pattern) : true;
-    const bool sizeMatches = size == 0 || (size >= 0 ? fileSize > size : fileSize < -size);
 
     return !checkLineRegex && nameMatches && sizeMatches;
 }

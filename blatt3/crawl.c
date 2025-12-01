@@ -83,7 +83,7 @@ int checkFile(const char* file, const char pattern[], const int sizeMode, const 
     const int fileSize = getFileSize(file);
 
     const int nameMatches = matchName(file, pattern);
-    const int sizeMatches = fileSize >= (size >= 0 ? size : -size);
+    const int sizeMatches = fileSize >= (size >= 0 ? -size : size);
     
     return nameMatches && sizeMatches;
 }

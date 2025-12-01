@@ -60,9 +60,12 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
                   const off_t size, regex_t* line_regex) {
     // SIZE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -size option
     // NAME_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -name option
-    // MAXDEPTH_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -maxdepth option
     // TYPE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -type option
     // LINE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -line option
+
+    if (maxDepth < 0) {
+        return;
+    }
 
     if (!isValidPath(path)) {
         return;
@@ -75,9 +78,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
         return;
     }
 
-    // path must be a dir
-
-    DIR* directory = opendir(path);
+    // path must be a dir from now on
 
     if (!checkDirectory(path, pattern, sizeMode, size, line_regex)) {
         return;
@@ -85,6 +86,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
 
     printf("%s\n", path);
 
+    DIR* directory = opendir(path);
     struct dirent* current_entry;
 
     while ((current_entry = readdir(directory)) != NULL) {

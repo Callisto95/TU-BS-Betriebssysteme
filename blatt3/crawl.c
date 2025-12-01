@@ -5,20 +5,24 @@
 #define _DEFAULT_SOURCE
 
 #include <dirent.h>
+#include <fnmatch.h>
 #include <inttypes.h>
+#include <libgen.h>
 #include <limits.h>
 #include <regex.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <fnmatch.h>
 
 #include "argumentParser.h"
 
 #define ONLY_FILE 1
 #define ONLY_DIRECTORY 2
 #define BOTH ONLY_FILE | ONLY_DIRECTORY
+
+int checkRegex = false;
 
 int isSet(const int value, const int flag) {
     return (value & flag) == flag;
@@ -27,8 +31,6 @@ int isSet(const int value, const int flag) {
 int isValidPath(const char* path) {
     struct stat status;
     stat(path, &status);
-
-    // printf("%s: dir: %d, reg: %d\n", path, S_ISDIR(status.st_mode), S_ISREG(status.st_mode));
 
     if (S_ISDIR(status.st_mode) || S_ISREG(status.st_mode)) {
         return 1;
@@ -39,7 +41,7 @@ int isValidPath(const char* path) {
 
 int isDir(const char* path) {
     struct stat status;
-    stat(path, &status);
+    lstat(path, &status);
 
     if (S_ISDIR(status.st_mode)) {
         return 1;
@@ -60,38 +62,72 @@ int isFile(const char* path) {
 }
 
 int matchName(const char* name, const char* pattern) {
-    return fnmatch(pattern, name, 0) == 0;
+    char copy[strlen(name)];
+    strcpy(copy, name);
+
+    return fnmatch(basename(copy), name, 0) == 0;
 }
 
-int getFileSize(const char* file) {
-    FILE* fp = fopen(file, "r");
-
-    if (fp == NULL) {
+int getFileSize(FILE* file) {
+    if (file == NULL) {
         return 0;
     }
 
-    fseek(fp, 0, SEEK_END);
+    const int currentPosition = ftell(file);
 
-    const int fileSize = ftell(fp);
+    fseek(file, 0, SEEK_END);
 
-    fclose(fp);
+    const int fileSize = ftell(file);
+
+    fseek(file, 0, currentPosition);
 
     return fileSize;
 }
 
-int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
-    const int fileSize = getFileSize(file);
+bool matchLines(const char* fileName, FILE* fp, regex_t* line_regex) {
+    char copy[strlen(fileName)];
+    strcpy(copy, fileName);
+    basename(copy);
 
-    const int nameMatches = matchName(file, pattern);
-    const int sizeMatches = size == 0 || (size >= 0 ? fileSize > size : fileSize < -size);
-    
-    return nameMatches && sizeMatches;
+    char* line;
+    size_t length = 0; // unused, but required
+
+    bool matchFound = false;
+
+    int lineNumber = 0;
+    while (getline(&line, &length, fp) != -1) {
+        lineNumber++;
+        const int result = regexec(line_regex, line, 0, NULL, REG_EXTENDED);
+
+        if (result != 0) {
+            continue;
+        }
+
+        matchFound = true;
+
+        printf("%s:%d:%s", copy, lineNumber, line);
+    }
+
+    return matchFound;
+}
+
+int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
+    FILE* fp = fopen(file, "r");
+
+    const int fileSize = getFileSize(fp);
+
+    const bool lineMatches = matchLines(file, fp, line_regex);
+
+    fclose(fp);
+
+    const bool nameMatches = matchName(file, pattern);
+    const bool sizeMatches = size == 0 || (size >= 0 ? fileSize > size : fileSize < -size);
+
+    return (nameMatches && sizeMatches) || lineMatches;
 }
 
 static void crawl(char* path, const int maxDepth, const char pattern[], const char type, const int sizeMode,
                   const off_t size, regex_t* line_regex) {
-    // LINE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -line option
-
     if (maxDepth < 0) {
         return;
     }
@@ -180,18 +216,42 @@ int getSize(void) {
     return strtol(sizeString, NULL, 10);
 }
 
+char* getLine(void) {
+    char* line = getValueForOption("line");
+
+    if (line == NULL) {
+        return ".";
+    }
+
+    checkRegex = true;
+
+    return line;
+}
+
 int main(const int argc, char* argv[]) {
     initArgumentParser(argc, argv);
 
+    int type = getType();
     const int maxDepth = getMaxDepth();
-    const int type = getType();
     const char* pattern = getName();
     const int size = getSize();
+    const char* line = getLine();
+
+    regex_t linePattern;
+    const int regexError = regcomp(&linePattern, line, 0);
+
+    if (regexError != 0) {
+        fprintf(stderr, "invalid regex: code %d\n", regexError);
+    }
+
+    if (size != 0 || checkRegex) {
+        type = ONLY_FILE;
+    }
 
     int i = 0;
     char* current_directory;
     while ((current_directory = getArgument(i)) != NULL) {
-        crawl(current_directory, maxDepth, pattern, type, 0, size, NULL);
+        crawl(current_directory, maxDepth, pattern, type, 0, size, &linePattern);
         i++;
     }
 }

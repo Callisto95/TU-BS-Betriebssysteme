@@ -26,6 +26,36 @@ int isValidPath(const char* path) {
     return 0;
 }
 
+int isDir(const char* path) {
+    struct stat status;
+    stat(path, &status);
+
+    if (S_ISDIR(status.st_mode)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+int isFile(const char* path) {
+    struct stat status;
+    stat(path, &status);
+
+    if (S_ISREG(status.st_mode)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+int checkFile(char* file, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
+    return 1;
+}
+
+int checkDirectory(char* directory, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
+    return 1;
+}
+
 static void crawl(char* path, const int maxDepth, const char pattern[], const char type, const int sizeMode,
                   const off_t size, regex_t* line_regex) {
     // SIZE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -size option
@@ -34,11 +64,26 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
     // TYPE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -type option
     // LINE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -line option
 
-    DIR* directory = opendir(path);
-
-    if (directory == NULL) {
+    if (!isValidPath(path)) {
         return;
     }
+
+    if (isFile(path)) {
+        if (checkFile(path, pattern, sizeMode, size, line_regex)) {
+            printf("%s\n", path);
+        }
+        return;
+    }
+
+    // path must be a dir
+
+    DIR* directory = opendir(path);
+
+    if (!checkDirectory(path, pattern, sizeMode, size, line_regex)) {
+        return;
+    }
+
+    printf("%s\n", path);
 
     struct dirent* current_entry;
 
@@ -55,7 +100,6 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
             continue;
         }
 
-        printf("%s\n", newPath);
         crawl(newPath, maxDepth - 1, pattern, type, sizeMode, size, line_regex);
     }
 

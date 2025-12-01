@@ -4,7 +4,9 @@
 
 #define _DEFAULT_SOURCE
 
+#include <bsd/stdlib.h>
 #include <dirent.h>
+#include <limits.h>
 #include <regex.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -108,13 +110,25 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
     closedir(directory);
 }
 
+int getMaxDepth(void) {
+    char* depthString = getValueForOption("maxdepth");
+
+    if (depthString == NULL) {
+        return INT_MAX;
+    }
+
+    return strtonum(depthString, 0, INT_MAX, NULL);
+}
+
 int main(int argc, char* argv[]) {
     initArgumentParser(argc, argv);
+
+    const int maxDepth = getMaxDepth();
 
     int i = 0;
     char* current_directory;
     while ((current_directory = getArgument(i)) != NULL) {
-        crawl(current_directory, 0, "", 'd', 1, 2, NULL);
+        crawl(current_directory, maxDepth, "", 'd', 1, 2, NULL);
         i++;
     }
 }

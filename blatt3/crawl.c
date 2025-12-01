@@ -60,15 +60,11 @@ int isFile(const char* path) {
 }
 
 int matchName(const char* name, const char* pattern) {
-    return fnmatch(name, pattern, FNM_PATHNAME) == 0;
+    return fnmatch(pattern, name, 0) == 0;
 }
 
 int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
     return matchName(file, pattern);
-}
-
-int checkDirectory(const char* directory, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
-    return matchName(directory, pattern);
 }
 
 static void crawl(char* path, const int maxDepth, const char pattern[], const char type, const int sizeMode,
@@ -93,11 +89,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
 
     // path must be a dir from now on
 
-    if (!checkDirectory(path, pattern, sizeMode, size, line_regex)) {
-        return;
-    }
-
-    if (isSet(type, DIRECTORY)) {
+    if (isSet(type, DIRECTORY) && matchName(path, pattern)) {
         printf("%s\n", path);
     }
 

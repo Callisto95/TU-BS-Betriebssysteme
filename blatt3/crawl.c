@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <fnmatch.h>
 
 #include "argumentParser.h"
 
@@ -58,18 +59,21 @@ int isFile(const char* path) {
     return 0;
 }
 
-int checkFile(char* file, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
-    return 1;
+int matchName(const char* name, const char* pattern) {
+    return fnmatch(name, pattern, FNM_PATHNAME) == 0;
 }
 
-int checkDirectory(char* directory, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
-    return 1;
+int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
+    return matchName(file, pattern);
+}
+
+int checkDirectory(const char* directory, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
+    return matchName(directory, pattern);
 }
 
 static void crawl(char* path, const int maxDepth, const char pattern[], const char type, const int sizeMode,
                   const off_t size, regex_t* line_regex) {
     // SIZE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -size option
-    // NAME_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -name option
     // LINE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -line option
 
     if (maxDepth < 0) {
@@ -148,16 +152,23 @@ int getType(void) {
     }
 }
 
+char* getName(void) {
+    char* name = getValueForOption("name");
+
+    return name == NULL ? "*" : name;
+}
+
 int main(const int argc, char* argv[]) {
     initArgumentParser(argc, argv);
 
     const int maxDepth = getMaxDepth();
     const int type = getType();
+    const char* pattern = getName();
 
     int i = 0;
     char* current_directory;
     while ((current_directory = getArgument(i)) != NULL) {
-        crawl(current_directory, maxDepth, "", type, 1, 2, NULL);
+        crawl(current_directory, maxDepth, pattern, type, 1, 2, NULL);
         i++;
     }
 }

@@ -70,7 +70,6 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
                   const off_t size, regex_t* line_regex) {
     // SIZE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -size option
     // NAME_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -name option
-    // TYPE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -type option
     // LINE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -line option
 
     if (maxDepth < 0) {

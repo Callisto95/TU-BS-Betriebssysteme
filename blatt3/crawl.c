@@ -63,14 +63,14 @@ int matchName(const char* name, const char* pattern) {
     return fnmatch(pattern, name, 0) == 0;
 }
 
-bool getFileSize(const char* file) {
+int getFileSize(const char* file) {
     FILE* fp = fopen(file, "r");
 
     if (fp == NULL) {
         return 0;
     }
 
-    fseek(fp, 0L, SEEK_END);
+    fseek(fp, 0, SEEK_END);
 
     const int fileSize = ftell(fp);
 
@@ -83,7 +83,7 @@ int checkFile(const char* file, const char pattern[], const int sizeMode, const 
     const int fileSize = getFileSize(file);
 
     const int nameMatches = matchName(file, pattern);
-    const int sizeMatches = fileSize >= (size >= 0 ? -size : size);
+    const int sizeMatches = size >= 0 ? fileSize >= size : fileSize <= -size;
     
     return nameMatches && sizeMatches;
 }
@@ -109,7 +109,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
 
     // path must be a dir from now on
 
-    if (isSet(type, ONLY_DIRECTORY) && matchName(path, pattern)) {
+    if (isSet(type, ONLY_DIRECTORY) && matchName(path, pattern) && size == 0) {
         printf("%s\n", path);
     }
 

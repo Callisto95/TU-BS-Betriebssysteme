@@ -113,7 +113,7 @@ bool matchLines(const char* fileName, FILE* fp, const regex_t* line_regex) {
     return matchFound;
 }
 
-int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
+int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, const regex_t* line_regex) {
     FILE* fp = fopen(file, "r");
 
     const int fileSize = getFileSize(fp);
@@ -128,7 +128,7 @@ int checkFile(const char* file, const char pattern[], const int sizeMode, const 
     const bool nameMatches = checkPattern ? matchName(file, pattern) : true;
     const bool sizeMatches = size == 0 || (size >= 0 ? fileSize > size : fileSize < -size);
 
-    return (nameMatches && sizeMatches) || lineMatches;
+    return !checkRegex && nameMatches && sizeMatches;
 }
 
 static void crawl(char* path, const int maxDepth, const char pattern[], const char type, const int sizeMode,

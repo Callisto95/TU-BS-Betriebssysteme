@@ -264,4 +264,6 @@ int main(const int argc, char* argv[]) {
         crawl(current_directory, maxDepth, pattern, type, 0, size, &linePattern);
         i++;
     }
+
+    regfree(&linePattern);
 }

@@ -4,8 +4,8 @@
 
 #define _DEFAULT_SOURCE
 
-#include <bsd/stdlib.h>
 #include <dirent.h>
+#include <inttypes.h>
 #include <limits.h>
 #include <regex.h>
 #include <stdio.h>
@@ -117,7 +117,7 @@ int getMaxDepth(void) {
         return INT_MAX;
     }
 
-    return strtonum(depthString, 0, INT_MAX, NULL);
+    return strtol(depthString, NULL, 10);
 }
 
 int main(int argc, char* argv[]) {

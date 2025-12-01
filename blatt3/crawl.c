@@ -31,7 +31,7 @@ int isSet(const int value, const int flag) {
 
 int isValidPath(const char* path) {
     struct stat status;
-    stat(path, &status);
+    lstat(path, &status);
 
     if (S_ISDIR(status.st_mode) || S_ISREG(status.st_mode)) {
         return 1;

@@ -65,7 +65,9 @@ int matchName(const char* name, const char* pattern) {
     char copy[strlen(name)];
     strcpy(copy, name);
 
-    return fnmatch(basename(copy), name, 0) == 0;
+    basename(copy);
+
+    return fnmatch(copy, name, 0) == 0;
 }
 
 int getFileSize(FILE* file) {
@@ -84,12 +86,11 @@ int getFileSize(FILE* file) {
     return fileSize;
 }
 
-bool matchLines(const char* fileName, FILE* fp, regex_t* line_regex) {
-    char copy[strlen(fileName)];
-    strcpy(copy, fileName);
-    basename(copy);
+bool matchLines(const char* fileName, FILE* fp, const regex_t* line_regex) {
+    char absolutePath[PATH_MAX];
+    realpath(fileName, absolutePath);
 
-    char* line;
+    char* line = NULL;
     size_t length = 0; // unused, but required
 
     bool matchFound = false;
@@ -105,7 +106,7 @@ bool matchLines(const char* fileName, FILE* fp, regex_t* line_regex) {
 
         matchFound = true;
 
-        printf("%s:%d:%s", copy, lineNumber, line);
+        printf("%s:%d:%s", absolutePath, lineNumber, line);
     }
 
     return matchFound;

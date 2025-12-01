@@ -63,11 +63,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
 }
 
 int main(int argc, char* argv[]) {
-    argc--;
-    argv++;
-
-    printf("parser init: %d\n", initArgumentParser(argc, argv));
-    printf("%s\n", getCommand());
+    initArgumentParser(argc, argv);
 
     int i = 0;
     char* current_directory;

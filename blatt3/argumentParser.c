@@ -46,11 +46,6 @@ void splitOption(char** fullOption) {
  * @return PARSER_INIT_FAILURE or PARSER_INIT_SUCCESS
  */
 int initArgumentParser(const int argc, char* argv[]) {
-    // the first argv is the file itself. Apparently it's not needed to skip it?
-    // user must skip it...
-    // argc--;
-    // argv += 1;
-    
     if (argc == 0) {
         return PARSER_INIT_FAILURE;
     }

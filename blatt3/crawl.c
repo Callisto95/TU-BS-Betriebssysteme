@@ -118,9 +118,8 @@ int checkFile(const char* file, const char pattern[], const int sizeMode, const 
 
     const int fileSize = getFileSize(fp);
 
-    bool lineMatches = false;
     if (checkRegex) {
-        lineMatches = matchLines(file, fp, line_regex);
+        matchLines(file, fp, line_regex);
     }
 
     fclose(fp);

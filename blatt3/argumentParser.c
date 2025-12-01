@@ -1,7 +1,5 @@
 #include "argumentParser.h"
 
-#include <stdbool.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -45,11 +43,16 @@ void splitOption(char** fullOption) {
  *
  * @param argc
  * @param argv
- * @return
+ * @return PARSER_INIT_FAILURE or PARSER_INIT_SUCCESS
  */
 int initArgumentParser(const int argc, char* argv[]) {
+    // the first argv is the file itself. Apparently it's not needed to skip it?
+    // user must skip it...
+    // argc--;
+    // argv += 1;
+    
     if (argc == 0) {
-        return -1;
+        return PARSER_INIT_FAILURE;
     }
 
     command = argv[0];
@@ -64,7 +67,7 @@ int initArgumentParser(const int argc, char* argv[]) {
         if (onlyOptions) {
             splitOption(&argv[i]);
             if (!(startsWithDash && hasEquals)) {
-                return -1;
+                return PARSER_INIT_FAILURE;
             }
         } else {
             // the first option
@@ -78,6 +81,7 @@ int initArgumentParser(const int argc, char* argv[]) {
         }
     }
 
+    // no options provided, everything in argv is arguments (except command)
     if (argumentCount == -1) {
         argumentCount = argc - 1;
     }
@@ -85,11 +89,7 @@ int initArgumentParser(const int argc, char* argv[]) {
     arguments = argv;
     combinedCount = argc - 1;
 
-    for (int i = 0; i < argc; i++) {
-        printf("%i: %s === %s\n", i, argv[i], arguments[i]);
-    }
-
-    return 0;
+    return PARSER_INIT_SUCCESS;
 }
 
 char* getCommand(void) {

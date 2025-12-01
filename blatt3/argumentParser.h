@@ -1,6 +1,11 @@
 #ifndef ARGUMENTPARSER_H
 #define ARGUMENTPARSER_H
 
+#include <stdbool.h>
+
+#define PARSER_INIT_SUCCESS 0
+#define PARSER_INIT_FAILURE -1
+
 /**
  * @file  argumentParser.h
  * @brief Simple command-line argument parsing module.
@@ -23,6 +28,11 @@
  * number of options can be specified. Both, arguments and options, are
  * optional.
  */
+
+/**
+ *
+ */
+bool stringsEqual(const char* s1, const char* s2);
 
 /**
  * @brief Initializes the simple command-line parsing module.
@@ -49,7 +59,7 @@ char* getCommand(void);
  * If the same key appears several times in the command line, the value of its
  * first occurrence is returned.
  *
- * @param key The key without leading dash.
+ * @param keyName The key without leading dash.
  * @return The value associated with the given key, or @c NULL if no such pair
  *         exists.
  */

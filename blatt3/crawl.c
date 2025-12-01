@@ -17,7 +17,7 @@ int isValidPath(const char* path) {
     struct stat status;
     stat(path, &status);
 
-    printf("%s: dir: %d, reg: %d\n", path, S_ISDIR(status.st_mode), S_ISREG(status.st_mode));
+    // printf("%s: dir: %d, reg: %d\n", path, S_ISDIR(status.st_mode), S_ISREG(status.st_mode));
 
     if (S_ISDIR(status.st_mode) || S_ISREG(status.st_mode)) {
         return 1;
@@ -65,7 +65,9 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
 int main(int argc, char* argv[]) {
     argc--;
     argv++;
+
     printf("parser init: %d\n", initArgumentParser(argc, argv));
+    printf("%s\n", getCommand());
 
     int i = 0;
     char* current_directory;

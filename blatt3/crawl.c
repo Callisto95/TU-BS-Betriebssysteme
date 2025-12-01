@@ -22,8 +22,8 @@
 #define ONLY_DIRECTORY 2
 #define BOTH ONLY_FILE | ONLY_DIRECTORY
 
-bool checkRegex = false;
-bool checkPattern = false;
+bool checkLineRegex = false;
+bool checkNamePattern = false;
 
 int isSet(const int value, const int flag) {
     return (value & flag) == flag;
@@ -99,7 +99,7 @@ bool matchLines(const char* fileName, FILE* fp, const regex_t* line_regex) {
     int lineNumber = 0;
     while (getline(&line, &length, fp) != -1) {
         lineNumber++;
-        const int result = regexec(line_regex, line, 0, NULL, REG_EXTENDED);
+        const int result = regexec(line_regex, line, 0, NULL, 0);
 
         if (result != 0) {
             continue;
@@ -118,16 +118,16 @@ int checkFile(const char* file, const char pattern[], const int sizeMode, const 
 
     const int fileSize = getFileSize(fp);
 
-    if (checkRegex) {
+    if (checkLineRegex) {
         matchLines(file, fp, line_regex);
     }
 
     fclose(fp);
 
-    const bool nameMatches = checkPattern ? matchName(file, pattern) : true;
+    const bool nameMatches = checkNamePattern ? matchName(file, pattern) : true;
     const bool sizeMatches = size == 0 || (size >= 0 ? fileSize > size : fileSize < -size);
 
-    return !checkRegex && nameMatches && sizeMatches;
+    return !checkLineRegex && nameMatches && sizeMatches;
 }
 
 static void crawl(char* path, const int maxDepth, const char pattern[], const char type, const int sizeMode,
@@ -211,7 +211,7 @@ char* getName(void) {
         return "*";
     }
 
-    checkPattern = true;
+    checkNamePattern = true;
 
     return name;
 }
@@ -233,7 +233,7 @@ char* getLine(void) {
         return ".";
     }
 
-    checkRegex = true;
+    checkLineRegex = true;
 
     return line;
 }
@@ -248,13 +248,13 @@ int main(const int argc, char* argv[]) {
     const char* line = getLine();
 
     regex_t linePattern;
-    const int regexError = regcomp(&linePattern, line, 0);
+    const int regexError = regcomp(&linePattern, line, REG_EXTENDED);
 
     if (regexError != 0) {
         fprintf(stderr, "invalid regex: code %d\n", regexError);
     }
 
-    if (size != 0 || checkRegex || checkPattern) {
+    if (size != 0 || checkLineRegex || checkNamePattern) {
         type = ONLY_FILE;
     }
 

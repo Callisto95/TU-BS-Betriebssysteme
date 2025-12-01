@@ -22,7 +22,7 @@ bool stringsEqual(const char* s1, const char* s2) {
     return strcmp(s1, s2) == 0;
 }
 
-void splitOption(char** fullOption) {
+static void splitOption(char** fullOption) {
     char* equals = strchr(*fullOption, '=');
 
     // no equals in string, nothing to split
@@ -60,10 +60,11 @@ int initArgumentParser(const int argc, char* argv[]) {
         const bool hasEquals = strchr(argv[i], '=') != NULL;
 
         if (onlyOptions) {
-            splitOption(&argv[i]);
+            // an argument after an option
             if (!(startsWithDash && hasEquals)) {
                 return PARSER_INIT_FAILURE;
             }
+            splitOption(&argv[i]);
         } else {
             // the first option
             // everything else prior was an argument

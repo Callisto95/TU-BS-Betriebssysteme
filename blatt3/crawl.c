@@ -25,11 +25,11 @@
 bool checkLineRegex = false;
 bool checkNamePattern = false;
 
-int isSet(const int value, const int flag) {
+static int isSet(const int value, const int flag) {
     return (value & flag) == flag;
 }
 
-int isValidPath(const char* path) {
+static int isValidPath(const char* path) {
     struct stat status;
     lstat(path, &status);
 
@@ -40,18 +40,7 @@ int isValidPath(const char* path) {
     return 0;
 }
 
-int isDir(const char* path) {
-    struct stat status;
-    lstat(path, &status);
-
-    if (S_ISDIR(status.st_mode)) {
-        return 1;
-    }
-
-    return 0;
-}
-
-int isFile(const char* path) {
+static int isFile(const char* path) {
     struct stat status;
     stat(path, &status);
 
@@ -62,7 +51,7 @@ int isFile(const char* path) {
     return 0;
 }
 
-int matchName(const char* name, const char* pattern) {
+static int matchName(const char* name, const char* pattern) {
     char copy[strlen(name)];
     strcpy(copy, name);
 
@@ -71,7 +60,7 @@ int matchName(const char* name, const char* pattern) {
     return fnmatch(pattern, buf, 0) == 0;
 }
 
-int getFileSize(FILE* file) {
+static int getFileSize(FILE* file) {
     if (file == NULL) {
         return 0;
     }
@@ -87,7 +76,7 @@ int getFileSize(FILE* file) {
     return fileSize;
 }
 
-bool matchLines(const char* fileName, FILE* fp, const regex_t* line_regex) {
+static bool matchLines(const char* fileName, FILE* fp, const regex_t* line_regex) {
     char absolutePath[PATH_MAX];
     realpath(fileName, absolutePath);
 
@@ -113,7 +102,7 @@ bool matchLines(const char* fileName, FILE* fp, const regex_t* line_regex) {
     return matchFound;
 }
 
-int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, const regex_t* line_regex) {
+static int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, const regex_t* line_regex) {
     FILE* fp = fopen(file, "r");
 
     const int fileSize = getFileSize(fp);
@@ -175,7 +164,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
     closedir(directory);
 }
 
-int getMaxDepth(void) {
+static int getMaxDepth(void) {
     const char* depthString = getValueForOption("maxdepth");
 
     if (depthString == NULL) {
@@ -187,7 +176,7 @@ int getMaxDepth(void) {
     return result < 0 ? 0 : result;
 }
 
-int getType(void) {
+static int getType(void) {
     const char* typeString = getValueForOption("type");
 
     if (typeString == NULL || strlen(typeString) != 1) {
@@ -204,7 +193,7 @@ int getType(void) {
     }
 }
 
-char* getName(void) {
+static char* getName(void) {
     char* name = getValueForOption("name");
 
     if (name == NULL) {
@@ -216,7 +205,7 @@ char* getName(void) {
     return name;
 }
 
-int getSize(void) {
+static int getSize(void) {
     const char* sizeString = getValueForOption("size");
 
     if (sizeString == NULL) {
@@ -226,7 +215,7 @@ int getSize(void) {
     return strtol(sizeString, NULL, 10);
 }
 
-char* getLine(void) {
+static char* getLine(void) {
     char* line = getValueForOption("line");
 
     if (line == NULL) {

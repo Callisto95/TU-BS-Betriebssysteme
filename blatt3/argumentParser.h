@@ -30,7 +30,7 @@
  */
 
 /**
- *
+ * @brief Tests if the two given strings are equal.
  */
 bool stringsEqual(const char* s1, const char* s2);
 

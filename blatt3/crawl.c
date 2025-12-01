@@ -22,7 +22,8 @@
 #define ONLY_DIRECTORY 2
 #define BOTH ONLY_FILE | ONLY_DIRECTORY
 
-int checkRegex = false;
+bool checkRegex = false;
+bool checkPattern = false;
 
 int isSet(const int value, const int flag) {
     return (value & flag) == flag;
@@ -65,9 +66,9 @@ int matchName(const char* name, const char* pattern) {
     char copy[strlen(name)];
     strcpy(copy, name);
 
-    basename(copy);
+    const char* buf = basename(copy);
 
-    return fnmatch(copy, name, 0) == 0;
+    return fnmatch(pattern, buf, 0) == 0;
 }
 
 int getFileSize(FILE* file) {
@@ -124,7 +125,7 @@ int checkFile(const char* file, const char pattern[], const int sizeMode, const 
 
     fclose(fp);
 
-    const bool nameMatches = matchName(file, pattern);
+    const bool nameMatches = checkPattern ? matchName(file, pattern) : true;
     const bool sizeMatches = size == 0 || (size >= 0 ? fileSize > size : fileSize < -size);
 
     return (nameMatches && sizeMatches) || lineMatches;
@@ -207,7 +208,13 @@ int getType(void) {
 char* getName(void) {
     char* name = getValueForOption("name");
 
-    return name == NULL ? "*" : name;
+    if (name == NULL) {
+        return "*";
+    }
+
+    checkPattern = true;
+
+    return name;
 }
 
 int getSize(void) {
@@ -248,7 +255,7 @@ int main(const int argc, char* argv[]) {
         fprintf(stderr, "invalid regex: code %d\n", regexError);
     }
 
-    if (size != 0 || checkRegex) {
+    if (size != 0 || checkRegex || checkPattern) {
         type = ONLY_FILE;
     }
 

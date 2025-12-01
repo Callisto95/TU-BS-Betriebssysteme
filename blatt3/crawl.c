@@ -16,9 +16,9 @@
 
 #include "argumentParser.h"
 
-#define FILE 1
-#define DIRECTORY 2
-#define BOTH FILE | DIRECTORY
+#define ONLY_FILE 1
+#define ONLY_DIRECTORY 2
+#define BOTH ONLY_FILE | ONLY_DIRECTORY
 
 int isSet(const int value, const int flag) {
     return (value & flag) == flag;
@@ -63,13 +63,33 @@ int matchName(const char* name, const char* pattern) {
     return fnmatch(pattern, name, 0) == 0;
 }
 
+bool getFileSize(const char* file) {
+    FILE* fp = fopen(file, "r");
+
+    if (fp == NULL) {
+        return 0;
+    }
+
+    fseek(fp, 0L, SEEK_END);
+
+    const int fileSize = ftell(fp);
+
+    fclose(fp);
+
+    return fileSize;
+}
+
 int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, regex_t* line_regex) {
-    return matchName(file, pattern);
+    const int fileSize = getFileSize(file);
+
+    const int nameMatches = matchName(file, pattern);
+    const int sizeMatches = size >= 0 ? fileSize > size : fileSize < size;
+    
+    return nameMatches && sizeMatches;
 }
 
 static void crawl(char* path, const int maxDepth, const char pattern[], const char type, const int sizeMode,
                   const off_t size, regex_t* line_regex) {
-    // SIZE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -size option
     // LINE_NOT_IMPLEMENTED_MARKER: remove this line to activate crawl testcases using -line option
 
     if (maxDepth < 0) {
@@ -81,7 +101,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
     }
 
     if (isFile(path)) {
-        if (isSet(type, FILE) && checkFile(path, pattern, sizeMode, size, line_regex)) {
+        if (isSet(type, ONLY_FILE) && checkFile(path, pattern, sizeMode, size, line_regex)) {
             printf("%s\n", path);
         }
         return;
@@ -89,7 +109,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
 
     // path must be a dir from now on
 
-    if (isSet(type, DIRECTORY) && matchName(path, pattern)) {
+    if (isSet(type, ONLY_DIRECTORY) && matchName(path, pattern)) {
         printf("%s\n", path);
     }
 
@@ -136,9 +156,9 @@ int getType(void) {
 
     switch (typeString[0]) {
     case 'd':
-        return DIRECTORY;
+        return ONLY_DIRECTORY;
     case 'f':
-        return FILE;
+        return ONLY_FILE;
     default:
         return BOTH;
     }
@@ -150,17 +170,28 @@ char* getName(void) {
     return name == NULL ? "*" : name;
 }
 
+int getSize(void) {
+    const char* sizeString = getValueForOption("size");
+
+    if (sizeString == NULL) {
+        return 0;
+    }
+
+    return strtol(sizeString, NULL, 10);
+}
+
 int main(const int argc, char* argv[]) {
     initArgumentParser(argc, argv);
 
     const int maxDepth = getMaxDepth();
     const int type = getType();
     const char* pattern = getName();
+    const int size = getSize();
 
     int i = 0;
     char* current_directory;
     while ((current_directory = getArgument(i)) != NULL) {
-        crawl(current_directory, maxDepth, pattern, type, 1, 2, NULL);
+        crawl(current_directory, maxDepth, pattern, type, 0, size, NULL);
         i++;
     }
 }

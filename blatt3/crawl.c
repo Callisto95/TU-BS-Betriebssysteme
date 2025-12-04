@@ -29,22 +29,14 @@ static bool isValidPath(const char* path) {
     struct stat status;
     lstat(path, &status);
 
-    if (S_ISDIR(status.st_mode) || S_ISREG(status.st_mode)) {
-        return true;
-    }
-
-    return false;
+    return S_ISDIR(status.st_mode) || S_ISREG(status.st_mode);
 }
 
 static bool isFile(const char* path) {
     struct stat status;
     lstat(path, &status);
 
-    if (S_ISREG(status.st_mode)) {
-        return true;
-    }
-
-    return false;
+    return S_ISREG(status.st_mode);
 }
 
 static int matchName(const char* name, const char* pattern) {

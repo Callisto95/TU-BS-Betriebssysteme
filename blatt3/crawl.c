@@ -38,7 +38,7 @@ static int isValidPath(const char* path) {
 
 static int isFile(const char* path) {
     struct stat status;
-    stat(path, &status);
+    lstat(path, &status);
 
     if (S_ISREG(status.st_mode)) {
         return 1;

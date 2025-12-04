@@ -4,9 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#define MAXIMUM_ARGUMENTS 50
-#define MAXIMUM_OPTIONS 50
-
 char** arguments;
 int optionIndex = -1;
 int argumentCount = -1;

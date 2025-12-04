@@ -3,10 +3,12 @@
 #include <errno.h>
 #include <string.h>
 
+#define UNINITIALIZED -1
+
 char** arguments;
-int optionIndex = -1;
-int argumentCount = -1;
-int combinedCount = -1;
+int optionIndex = UNINITIALIZED;
+int argumentCount = UNINITIALIZED;
+int combinedCount = UNINITIALIZED;
 
 char* command = NULL;
 
@@ -61,7 +63,7 @@ int initArgumentParser(const int argc, char* argv[]) {
     }
 
     // no options provided, everything in argv is arguments (except command)
-    if (argumentCount == -1) {
+    if (argumentCount == UNINITIALIZED) {
         argumentCount = argc - 1;
     }
 
@@ -88,7 +90,7 @@ char* getArgument(const int index) {
 }
 
 char* getValueForOption(const char* keyName) {
-    if (optionIndex == -1) {
+    if (optionIndex == UNINITIALIZED) {
         return NULL;
     }
 

@@ -7,11 +7,6 @@
 #define MAXIMUM_ARGUMENTS 50
 #define MAXIMUM_OPTIONS 50
 
-struct option {
-    char* name;
-    char* value;
-};
-
 char** arguments;
 int optionIndex = -1;
 int argumentCount = -1;

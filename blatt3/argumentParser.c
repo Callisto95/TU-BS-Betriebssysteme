@@ -21,6 +21,9 @@ bool stringsEqual(const char* s1, const char* s2) {
 static void splitOption(char** fullOption) {
     char* equals = strchr(*fullOption, '=');
 
+    // skip leading '-'
+    *fullOption += 1;
+
     // no equals in string, nothing to split
     // most likely '-empty='
     if (!equals) {
@@ -29,9 +32,6 @@ static void splitOption(char** fullOption) {
 
     // since strings are null terminated, adding a \0 in place of the '=' splits the string
     *equals = '\0';
-
-    // skip leading '-'
-    *fullOption += 1;
 }
 
 /**
@@ -42,11 +42,6 @@ static void splitOption(char** fullOption) {
  * @return PARSER_INIT_FAILURE or PARSER_INIT_SUCCESS
  */
 int initArgumentParser(const int argc, char* argv[]) {
-    if (argc == 0) {
-        errno = EINVAL;
-        return PARSER_INIT_FAILURE;
-    }
-
     command = argv[0];
     bool onlyOptions = false;
 

@@ -30,8 +30,8 @@ static void splitOption(char** fullOption) {
         return;
     }
 
-    // // skip leading '-'
-    // *fullOption += 1;
+    // skip leading '-'
+    *fullOption += 1;
 
     // since strings are null terminated, adding a \0 in place of the '=' splits the string
     *equals = '\0';

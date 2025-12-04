@@ -25,26 +25,26 @@ static int isSet(const int value, const int flag) {
     return (value & flag) == flag;
 }
 
-static int isValidPath(const char* path) {
+static bool isValidPath(const char* path) {
     struct stat status;
     lstat(path, &status);
 
     if (S_ISDIR(status.st_mode) || S_ISREG(status.st_mode)) {
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
-static int isFile(const char* path) {
+static bool isFile(const char* path) {
     struct stat status;
     lstat(path, &status);
 
     if (S_ISREG(status.st_mode)) {
-        return 1;
+        return true;
     }
 
-    return 0;
+    return false;
 }
 
 static int matchName(const char* name, const char* pattern) {
@@ -149,10 +149,6 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
 
         char newPath[strlen(path) + strlen(current_entry->d_name) + 1];
         snprintf(newPath, PATH_MAX, "%s/%s", path, current_entry->d_name);
-
-        if (!isValidPath(newPath)) {
-            continue;
-        }
 
         crawl(newPath, maxDepth - 1, pattern, type, 0, size, line_regex);
     }

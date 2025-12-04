@@ -1,7 +1,3 @@
-// TODO: includes, global vars, etc
-
-// TODO: implement helper functions: makes constraint checking easier
-
 #define _DEFAULT_SOURCE
 
 #include <dirent.h>
@@ -22,8 +18,8 @@
 #define ONLY_DIRECTORY 2
 #define BOTH ONLY_FILE | ONLY_DIRECTORY
 
-bool checkLineRegex = false;
-bool checkNamePattern = false;
+static bool checkLineRegex = false;
+static bool checkNamePattern = false;
 
 static int isSet(const int value, const int flag) {
     return (value & flag) == flag;
@@ -102,7 +98,7 @@ static bool matchLines(const char* fileName, FILE* fp, const regex_t* line_regex
     return matchFound;
 }
 
-static int checkFile(const char* file, const char pattern[], const int sizeMode, const off_t size, const regex_t* line_regex) {
+static int checkFile(const char* file, const char pattern[], const int _, const off_t size, const regex_t* line_regex) {
     FILE* fp = fopen(file, "r");
 
     const int fileSize = getFileSize(fp);

@@ -1,5 +1,6 @@
 #include "argumentParser.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -47,6 +48,7 @@ static void splitOption(char** fullOption) {
  */
 int initArgumentParser(const int argc, char* argv[]) {
     if (argc == 0) {
+        errno = EINVAL;
         return PARSER_INIT_FAILURE;
     }
 
@@ -62,6 +64,7 @@ int initArgumentParser(const int argc, char* argv[]) {
         if (onlyOptions) {
             // an argument after an option
             if (!(startsWithDash && hasEquals)) {
+                errno = EINVAL;
                 return PARSER_INIT_FAILURE;
             }
             splitOption(&argv[i]);

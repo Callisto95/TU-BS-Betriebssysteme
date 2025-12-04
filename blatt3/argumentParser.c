@@ -1,7 +1,6 @@
 #include "argumentParser.h"
 
 #include <errno.h>
-#include <stdio.h>
 #include <string.h>
 
 char** arguments;
@@ -31,13 +30,6 @@ static void splitOption(char** fullOption) {
     *equals = '\0';
 }
 
-/**
- * Initializes the ArgumentParser by modifying argv.
- *
- * @param argc
- * @param argv
- * @return PARSER_INIT_FAILURE or PARSER_INIT_SUCCESS
- */
 int initArgumentParser(const int argc, char* argv[]) {
     command = argv[0];
     bool onlyOptions = false;

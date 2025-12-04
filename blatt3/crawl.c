@@ -98,7 +98,7 @@ static bool matchLines(const char* fileName, FILE* fp, const regex_t* line_regex
     return matchFound;
 }
 
-static int checkFile(const char* file, const char pattern[], const int _, const off_t size, const regex_t* line_regex) {
+static int checkFile(const char* file, const char pattern[], const off_t size, const regex_t* line_regex) {
     FILE* fp = fopen(file, "r");
 
     const int fileSize = getFileSize(fp);
@@ -115,8 +115,8 @@ static int checkFile(const char* file, const char pattern[], const int _, const 
     return !checkLineRegex && nameMatches && sizeMatches;
 }
 
-static void crawl(char* path, const int maxDepth, const char pattern[], const char type, const int sizeMode,
-                  const off_t size, regex_t* line_regex) {
+static void crawl(char* path, const int maxDepth, const char pattern[], const char type, const int _, const off_t size,
+                  regex_t* line_regex) {
     if (maxDepth < 0) {
         return;
     }
@@ -126,7 +126,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
     }
 
     if (isFile(path)) {
-        if (isSet(type, ONLY_FILE) && checkFile(path, pattern, sizeMode, size, line_regex)) {
+        if (isSet(type, ONLY_FILE) && checkFile(path, pattern, size, line_regex)) {
             printf("%s\n", path);
         }
         return;
@@ -154,7 +154,7 @@ static void crawl(char* path, const int maxDepth, const char pattern[], const ch
             continue;
         }
 
-        crawl(newPath, maxDepth - 1, pattern, type, sizeMode, size, line_regex);
+        crawl(newPath, maxDepth - 1, pattern, type, 0, size, line_regex);
     }
 
     closedir(directory);

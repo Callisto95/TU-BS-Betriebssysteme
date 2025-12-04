@@ -30,6 +30,9 @@ static void splitOption(char** fullOption) {
         return;
     }
 
+    // // skip leading '-'
+    // *fullOption += 1;
+
     // since strings are null terminated, adding a \0 in place of the '=' splits the string
     *equals = '\0';
 }
@@ -50,10 +53,11 @@ int initArgumentParser(const int argc, char* argv[]) {
 
         const bool startsWithDash = argv[i][0] == '-';
         const bool hasEquals = strchr(argv[i], '=') != NULL;
+        const bool isOption = startsWithDash && hasEquals;
 
         if (onlyOptions) {
             // an argument after an option
-            if (!(startsWithDash && hasEquals)) {
+            if (!isOption) {
                 errno = EINVAL;
                 return PARSER_INIT_FAILURE;
             }
@@ -61,7 +65,7 @@ int initArgumentParser(const int argc, char* argv[]) {
         } else {
             // the first option
             // everything else prior was an argument
-            if (startsWithDash && hasEquals) {
+            if (isOption) {
                 onlyOptions = true;
                 argumentCount = i - 1;
                 optionIndex = i;

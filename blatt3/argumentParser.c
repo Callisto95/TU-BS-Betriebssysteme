@@ -21,8 +21,8 @@ bool stringsEqual(const char* s1, const char* s2) {
 static void splitOption(char** fullOption) {
     char* equals = strchr(*fullOption, '=');
 
-    // skip leading '-'
-    *fullOption += 1;
+    // // skip leading '-'
+    // *fullOption += 1;
 
     // no equals in string, nothing to split
     // most likely '-empty='

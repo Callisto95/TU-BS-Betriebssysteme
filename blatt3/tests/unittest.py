@@ -37,6 +37,7 @@ PRESENT_ML_THRESHOLD = 0.50
 SCRIPT_ROOT = os.path.dirname(__file__)
 GDB_SCRIPT_TRACE = os.path.join(SCRIPT_ROOT, "gdb_trace.py")
 GDB = os.environ.get("USE_GDB")
+KEEP_FILES = os.environ.get("KEEP_FILES")
 
 
 def wrap_in_list(o):
@@ -535,7 +536,7 @@ class Compilation:
             else:
                 with open(src) as fd:
                     content = fd.read()
-            if not content.endswith("\n"):
+            if not content.endswith("\n") and len(content) > 0:
                 logging.warning("Missing newline at End of File")
                 content += "\n"
 
@@ -568,12 +569,15 @@ class Compilation:
 
                 out = ""
                 if before:
-                    out += f"""#line 1 "<<__remap_before>>"\n"""
+                    if not GDB:
+                        out += f"""#line 1 "<<__remap_before>>"\n"""
                     out += before
                 for i in self.before_main:
-                    out += f"""#line 1 "{i.name}"\n"""
+                    if not GDB:
+                        out += f"""#line 1 "{i.name}"\n"""
                     out += i.body
-                out += f"""#line 1 "{src}"\n"""
+                if not GDB:
+                    out += f"""#line 1 "{src}"\n"""
                 out += content
                 all_tokens = [
                     ("{{{" + x[0] + "}}}", str(x[1]))
@@ -583,13 +587,15 @@ class Compilation:
                 ]
 
                 if after:
-                    out += f"""#line 1 "<<__remap_after>>"\n"""
-                    self.after_main_cat += f"""#line 1 "<<__remap_after>>"\n"""
+                    if not GDB:
+                        out += f"""#line 1 "<<__remap_after>>"\n"""
+                        self.after_main_cat += f"""#line 1 "<<__remap_after>>"\n"""
                     out += replace_all(after, all_tokens)
                     self.after_main_cat += after
                 for i in self.after_main:
-                    out += f"""#line 1 "{i.name}"\n"""
-                    self.after_main_cat += f"""#line 1 "{i.name}"\n"""
+                    if not GDB:
+                        out += f"""#line 1 "{i.name}"\n"""
+                        self.after_main_cat += f"""#line 1 "{i.name}"\n"""
                     out += replace_all(i.body, all_tokens)
                     self.after_main_cat += i.body
                 content = out
@@ -860,7 +866,7 @@ class Compilation:
             raise RuntimeError(dir(e))
 
     def cleanup(self):
-        if self.tmpdir is None:
+        if KEEP_FILES or self.tmpdir is None:
             return
         shutil.rmtree(self.tmpdir)
         self.tmpdir = None

@@ -319,7 +319,7 @@ if not lstat:
 
 
 --- !python all
-malus=3
+malus=1
 exe.check_requirements(["NAME", "LINE", "SIZE", "TYPE"])
 args = "-name=*.c -line=pr.+t -size=-4096 -type=f"
 f = prepare_folder()

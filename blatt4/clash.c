@@ -52,10 +52,6 @@ bool handleInternal(char* argv[], int argc, int* status) {
 
 int main(void) {
     // TODO: implement me
-    // PROMPT_NOT_IMPLEMENTED_MARKER remove this line to enable prompt related testcases
-    // CHILD_NOT_IMPLEMENTED_MARKER remove this line to enable testaces which execute commands
-    // STATUS_NOT_IMPLEMENTED_MARKER remove this line to enable testcases for the status line after a child terminates
-    // CD_NOT_IMPLEMENTED_MARKER remove this line to enable cd related testcases
     // BACKGROUND_NOT_IMPLEMENTED_MARKER remove this line to enable testcases for background tasks
     // JOBS_NOT_IMPLEMENTED_MARKER remove this line to enable cd related testcases
     char cwd[PATH_MAX];
@@ -63,12 +59,16 @@ int main(void) {
         getcwd(cwd, PATH_MAX);
         fprintf(stderr, "%s: ", cwd);
 
-        char* fullCommand;
+        char* fullCommand = NULL;
         size_t length = 0;
         if (getline(&fullCommand, &length, stdin) == -1) {
+            free(fullCommand);
             return 0;
         }
-
+        
+        if (strlen(fullCommand) > sysconf(_SC_LINE_MAX)) {
+            continue;
+        }
 
         char* argv[MAX_ARGS];
 
@@ -109,9 +109,11 @@ int main(void) {
 
         printf("Exitstatus [");
         for (int i = 0; i < argc; i++) {
-            printf("%s%s", argv[i], (i == argc - 1) ? "" : " ");
+            printf("%s%s", argv[i], i == argc - 1 ? "" : " ");
         }
         printf("] = %d\n", status);
+        
+        free(fullCommand);
     }
 }
 

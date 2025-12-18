@@ -44,12 +44,8 @@ bool stringsEqual(const char* s1, const char* s2) {
     return strcmp(s1, s2) == 0;
 }
 
-void printExit(char* argv[], const int argc, const int status) {
-    fprintf(stderr, "Exitstatus [");
-    for (int i = 0; i < argc; i++) {
-        fprintf(stderr, "%s%s", argv[i], i == argc - 1 ? "" : " ");
-    }
-    fprintf(stderr, "] = %d\n", status);
+void printExit(char* command, const int status) {
+    fprintf(stderr, "Exitstatus [%s] = %d", command, status);
 }
 
 bool handleInternal(char* argv[], int argc, int* status) {
@@ -157,7 +153,7 @@ int main(void) {
             }
 
             if (!isBackground) {
-                printExit(argv, argc, status);
+                printExit(fullCommand, status);
             }
         }
 

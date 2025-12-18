@@ -22,7 +22,7 @@ char* commandDelimiters = " \t\n";
 list backgroundProcesses;
 struct finished_process* finishedProcess;
 
-int walk(pid_t pid, const char* cmd) {
+int walk_getFinishedProcess(pid_t pid, const char* cmd) {
     int status = 0;
     if (waitpid(pid, &status, WNOHANG) != 0) {
         finishedProcess = malloc(sizeof(struct finished_process));
@@ -32,6 +32,11 @@ int walk(pid_t pid, const char* cmd) {
         return -1;
     }
 
+    return 0;
+}
+
+int walk_printBackgroundProcesses(pid_t pid, const char* cmd) {
+    printf("[%d] %s\n", pid, cmd);
     return 0;
 }
 
@@ -61,20 +66,25 @@ bool handleInternal(char* argv[], int argc, int* status) {
         return true;
     }
 
+    if (stringsEqual(argv[0], "jobs")) {
+        walkList(&backgroundProcesses, walk_printBackgroundProcesses);
+        return true;
+    }
+
     return false;
 }
 
 bool handleExternal(const char* fullCommand, char* argv[MAX_ARGS], int* argc, int* status) {
     const int pid = fork();
     bool isBackground = false;
-    
+
     if (stringsEqual(argv[*argc - 1], "&")) {
         isBackground = true;
         insertElement(&backgroundProcesses, pid, fullCommand);
         argv[*argc - 1] = NULL;
         *argc = *argc - 1;
     }
-    
+
     if (pid == 0 && execvp(argv[0], argv) == -1) {
         const int errorNumber = errno;
         perror("exec");
@@ -95,13 +105,11 @@ bool handleExternal(const char* fullCommand, char* argv[MAX_ARGS], int* argc, in
 }
 
 int main(void) {
-    // TODO: implement me
-    // JOBS_NOT_IMPLEMENTED_MARKER remove this line to enable cd related testcases
     char cwd[PATH_MAX];
     while (true) {
         getcwd(cwd, PATH_MAX);
         fprintf(stderr, "%s: ", cwd);
-        
+
         char* fullCommand = NULL;
         size_t length = 0;
         if (getline(&fullCommand, &length, stdin) == -1) {
@@ -112,13 +120,13 @@ int main(void) {
         if (strlen(fullCommand) > sysconf(_SC_LINE_MAX)) {
             continue;
         }
-        
+
         const bool onlyShowResults = fullCommand[0] == '\n';
-        
+
         if (!onlyShowResults) {
             // remove trailing new line
             fullCommand[strlen(fullCommand) - 1] = '\0';
-        
+
             char commandCopy[strlen(fullCommand)];
             strcpy(commandCopy, fullCommand);
 
@@ -142,7 +150,9 @@ int main(void) {
 
             bool isBackground = false;
 
-            if (!handleInternal(argv, argc, &status)) {
+            if (handleInternal(argv, argc, &status)) {
+                isBackground = true;
+            } else {
                 isBackground = handleExternal(fullCommand, argv, &argc, &status);
             }
 
@@ -150,13 +160,13 @@ int main(void) {
                 printExit(argv, argc, status);
             }
         }
-        
-        walkList(&backgroundProcesses, walk);
+
+        walkList(&backgroundProcesses, walk_getFinishedProcess);
         while (finishedProcess != NULL) {
             printf("BackExitstatus [%s] = %d\n", finishedProcess->command, finishedProcess->status);
             char buffer[sysconf(_SC_LINE_MAX)];
             removeElement(&backgroundProcesses, finishedProcess->pid, buffer, sysconf(_SC_LINE_MAX));
-            walkList(&backgroundProcesses, walk);
+            walkList(&backgroundProcesses, walk_getFinishedProcess);
             free(finishedProcess);
             finishedProcess = NULL;
         }

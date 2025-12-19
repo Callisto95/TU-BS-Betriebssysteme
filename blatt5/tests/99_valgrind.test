@@ -1,0 +1,26 @@
+--- !inherit 01_base.test
+--- !python valgrind singlethreaded
+bonus=1
+exe = Compilation().compile()
+try:
+    exe.run(cmd_prefix=['valgrind', '--version'])
+except:
+    logging.warning("Valgrind is not installed on your system, skipping valgrind test")
+else:
+    try:
+        exe.run(cmd_prefix=['valgrind', "-q", "--suppressions=tests/valgrind-pthread.supp", "--error-exitcode=1", "--leak-check=full"], args=['1'], input="(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n")
+    except:
+        exe.fail_marker(1, "Memory Leak Detected\nIf the only leak points to a pthread_create call you may ignore it. Valgrind is known to report incorrect results in combination with pthreads (https://stackoverflow.com/questions/17642433/why-pthread-causes-a-memory-leak)")
+--- !python valgrind multithreaded
+bonus=1
+exe = Compilation().compile()
+exe.check_requirements(["MULTITHREADING"])
+try:
+    exe.run(cmd_prefix=['valgrind', '--version'])
+except:
+    logging.warning("Valgrind is not installed on your system, skipping valgrind test")
+else:
+    try:
+        exe.run(cmd_prefix=['valgrind', "-q", "--suppressions=tests/valgrind-pthread.supp", "--error-exitcode=1", "--leak-check=full"], args=['5'], input="(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n(1,1),(2,4),(7,5)\n")
+    except:
+        exe.fail_marker(1, "Memory Leak Detected\nIf the only leak points to a pthread_create call you may ignore it. Valgrind is known to report incorrect results in combination with pthreads (https://stackoverflow.com/questions/17642433/why-pthread-causes-a-memory-leak)")

@@ -1,0 +1,34 @@
+--- !yaml
+sources:
+  triangle.h: {}
+  triangle.c: {}
+  patric.c:
+    main: true
+cflags: [-std=c11, -D_XOPEN_SOURCE=700, -Wall, -Werror, -pedantic, -g, -ggdb, -pthread]
+
+--- !python
+malus = 1
+Compilation().compile()
+
+
+--- !source ref
+#include<stdio.h>
+int in, bo, th;
+
+void cb(int b, int i) {
+  in += i;
+  bo += b;
+}
+
+int main(void) {
+  struct triangle t;
+  for (;;++th) {
+	int * f = (int *) &t;
+	int m = scanf("(%d,%d),(%d,%d),(%d,%d)\n",f+0,f+1,f+2,f+3,f+4,f+5);
+	if (m != 6) {break;}
+	countPoints(&t, cb);
+  }
+  printf("%d boundary and %d interior", bo, in);
+}
+
+

@@ -1,0 +1,216 @@
+--- !inherit 01_base.test
+--- !python patric compiles
+malus = 1
+exe = Compilation().compile()
+from random import randint
+
+def gen_t(mini, maxi):
+    p = [randint(mini, maxi) for i in range(6)]
+    return "({},{}),({},{}),({},{})".format(*p)
+def generate_testdata(size, mini, maxi):
+    return "\n".join([gen_t(mini, maxi) for i in range(size)])+"\n"
+
+
+--- !python testcase-small
+bonus=1
+stdin = "(1,1),(1,1),(1,1)\n(1,1),(1,1),(1,1)\n(0,0),(0,0),(0,0)\n"
+soll = "0 boundary and 0 interior"
+stdout, stderr = exe.run(input=stdin, args=['1'])
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result')
+
+--- !python testcase-medium
+bonus=1
+exe.check_requirements(["ACTIVATE_MEDIUM_TESTCASES"])
+stdin = "(3657,8079),(3657,8079),(3657,8079)\n\
+(453,2018),(453,2018),(453,2018)\n\
+(5622,2292),(5622,2292),(5622,2292)\n\
+(5385,4625),(5385,4625),(5385,4625)\n\
+(901,2017),(901,2017),(901,2017)\n\
+(6169,4847),(6169,4847),(6169,4847)\n\
+(431,8261),(431,8261),(431,8261)\n\
+(8024,4346),(8024,4346),(8024,4346)\n\
+(9206,8477),(9206,8477),(9206,8477)\n\
+(2901,7792),(2901,7792),(2901,7792)\n\
+(565,7486),(565,7486),(565,7486)\n\
+(3741,8272),(3741,8272),(3741,8272)\n\
+(5768,6332),(5768,6332),(5768,6332)\n\
+(1344,8958),(1344,8958),(1344,8958)\n\
+(2129,2080),(2129,2080),(2129,2080)\n\
+(6406,6671),(6406,6671),(6406,6671)\n\
+(7616,5653),(7616,5653),(7616,5653)\n\
+(3996,8757),(3996,8757),(3996,8757)\n\
+(2956,4211),(2956,4211),(2956,4211)\n\
+(99,9092),(99,9092),(99,9092)\n\
+(2321,7927),(2321,7927),(2321,7927)\n\
+(7262,7543),(7262,7543),(7262,7543)\n\
+(3795,7316),(3795,7316),(3795,7316)\n\
+(2419,2692),(2419,2692),(2419,2692)\n\
+(5827,5750),(5827,5750),(5827,5750)\n\
+(2287,326),(2287,326),(2287,326)\n\
+(7932,5093),(7932,5093),(7932,5093)\n\
+(2848,3423),(2848,3423),(2848,3423)\n\
+(5216,521),(5216,521),(5216,521)\n\
+(3570,661),(3570,661),(3570,661)\n\
+(4475,2235),(4475,2235),(4475,2235)\n\
+(711,4823),(711,4823),(711,4823)\n"
+soll = "0 boundary and 0 interior"
+stdout, stderr = exe.run(input=stdin, args=['1'])
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result')
+
+
+--- !python test the reference
+exe.check_requirements(["ACTIVATE_DYNAMIC_TESTCASES"])
+malus = 0.5
+old_flags = cflags
+cflags = []
+global ref
+ref = Compilation(ref, source_files={"triangle.h":{},"triangle.c":{"main":True}}).compile(flags=[])
+
+stdin = "(1,1),(2,4),(7,5)\n"
+stdout, stderr = ref.run(input=stdin)
+if "4 boundary and 6 interior" not in stdout:
+    raise RuntimeError(
+        "It seems as if the automated tests do not work on your system."\
+        "Please execute them on x1 or test manually with the given"\
+        "example inputs found in /ibr/courses/ws2425/bs/blatt5/")
+
+
+--- !python dynamic small
+bonus=1
+exe.check_requirements(["ACTIVATE_DYNAMIC_TESTCASES"])
+stdin = generate_testdata(50,0,10)
+soll,stderr2 = ref.run(input=stdin)
+stdout, stderr = exe.run(input=stdin, args=['1'])
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("expected part of stdout:\n{}".format(soll))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result')
+
+--- !python dynamic small with thread_sanitizer
+thread_sanitizer=Compilation()
+malus = 1.5
+exe.check_requirements(["ACTIVATE_DYNAMIC_TESTCASES"])
+stdin = generate_testdata(50,0,10)
+soll,stderr2 = ref.run(input=stdin)
+# cmd_prefix needed to workaround a TSAN incompatibility with ALSR on Linux >= 6.6.X
+# See <https://github.com/google/sanitizers/issues/1716>
+stdout, stderr = thread_sanitizer.compile(flags=['-fsanitize=thread']).run( cmd_prefix=['setarch', '-R'], input=stdin, args=['1'] )
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("expected part of stdout:\n{}".format(soll))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result or thread_sanitizer failed')
+
+--- !python dynamic large
+bonus=1
+exe.check_requirements(["ACTIVATE_DYNAMIC_TESTCASES", "ACTIVATE_LARGE_TESTCASES"])
+num_triangles = 500
+num_threads = 1
+stdin = generate_testdata(num_triangles,0,999)
+soll,stderr2 = ref.run(input=stdin)
+stdout, stderr = exe.run(input=stdin, args=[str(num_threads)])
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("expected part of stdout:\n{}".format(soll))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result')
+
+if "{} active".format(num_threads+1) in stdout:
+    logging.info("actual stdout:\n{}".format(stdout.replace("\r","\n")))
+    raise RuntimeError('you stated that there are more running threads ({}) than requested ({})'.format(num_threads+1, num_threads))
+
+if "{} finished".format(num_triangles+1) in stdout:
+    logging.info("actual stdout:\n{}".format(stdout.replace("\r","\n")))
+    raise RuntimeError('you stated that there are more finished worker threads ({}) than working sets ({})'.format(num_triangles+1, num_triangles))
+
+
+--- !source bad_pthread_create
+//#define pthread_create ( a,b,c,d ) { return EAGAIN; }
+#include <errno.h>
+#include <pthread.h>
+int pthread_create(pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine) (void *), void *arg)
+{
+    return EAGAIN;
+}
+
+--- !python pthread_create fails
+bonus=1
+c = Compilation(before_main=bad_pthread_create)
+stdin = "(3657,8079),(3657,8079),(3657,8079)\n\
+(431,8261),(431,8261),(431,8261)\n\
+(711,4823),(711,4823),(711,4823)\n"
+EXIT_FAILURE=1
+c.compile().run( must_fail = True, retcode_expected = lambda x: x == EXIT_FAILURE, input=stdin, args=['1'] )
+
+--- !python check if output in critical area
+# Run a standard test and trace mandatory calls.
+malus = 0.5
+stdin = "(1,1),(1,1),(1,1)\n(1,1),(1,1),(1,1)\n(0,0),(0,0),(0,0)\n"
+soll = "0 boundary and 0 interior"
+critical_section_open = 'sem_wait'
+critical_section_close = 'sem_post'
+critical_section_forbidden = ['puts', 'printf', 'fprintf', 'fwrite']
+critical_section_opened = []
+critical_section_prints = []
+
+trace_functions = [critical_section_open, critical_section_close] + critical_section_forbidden
+trace = exe.trace(trace_functions, args=['1'], input=stdin)
+call_list = []
+for invocation in trace.function_called(trace_functions):
+    call_list.append(eval(str(invocation)))
+
+for call in call_list:
+    call_thread_id = call["thread_id"]
+    call_critical_section_identifier = call["args"][0][1]["value"]
+    if call["name"] == critical_section_open:
+        critical_section_opened.append({
+            "id": call["id"],
+            "name": call["name"],
+            "critical_section_identifier": call_critical_section_identifier,
+            "thread_id": call_thread_id
+        })
+    elif call["name"] == critical_section_close:
+        # Check if a print happened while that exact critical section was opened and then closed.
+        for critical_print in critical_section_prints:
+            if critical_print["critical_section_identifier"] == call_critical_section_identifier and critical_print["thread_id"] == call_thread_id:
+                raise RuntimeError(
+                    '\nYour code prints text while being inside a critical section.\n'
+                    'This is bad practice and should be removed.\n'
+                )
+        critical_section_opened = [
+            cso for cso in critical_section_opened
+            if not(
+                cso["thread_id"] == call_thread_id and
+                cso["critical_section_identifier"] == call_critical_section_identifier
+            )
+        ]
+        critical_section_prints = [
+            csp for csp in critical_section_prints
+            if not(
+                csp["thread_id"] == call_thread_id and
+                csp["critical_section_identifier"] == call_critical_section_identifier
+            )
+        ]
+    elif call["name"] in critical_section_forbidden:
+        # Add the call related to all opened critical sections.
+        for cso in critical_section_opened:
+            if cso["thread_id"] == call_thread_id:
+                print_string = call["args"][0][1]["value"]
+                critical_section_identifier = cso["critical_section_identifier"]
+                critical_section_prints.append({
+                    "thread_id": call_thread_id,
+                    "print_string": print_string,
+                    "critical_section_identifier": critical_section_identifier
+                })

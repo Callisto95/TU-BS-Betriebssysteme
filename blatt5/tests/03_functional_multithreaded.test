@@ -1,0 +1,182 @@
+--- !inherit 01_base.test
+--- !yaml
+requirements: [MULTITHREADING]
+--- !python patric compiles
+malus = 1
+exe = Compilation().compile()
+from random import randint
+
+def gen_t(mini, maxi):
+    p = [randint(mini, maxi) for i in range(6)]
+    return "({},{}),({},{}),({},{})".format(*p)
+def generate_testdata(size, mini, maxi):
+    return "\n".join([gen_t(mini, maxi) for i in range(size)])+"\n"
+
+
+--- !python testcase-small
+bonus=1
+stdin = "(1,1),(1,1),(1,1)\n(1,1),(1,1),(1,1)\n(0,0),(0,0),(0,0)\n"
+soll = "0 boundary and 0 interior"
+stdout, stderr = exe.run(input=stdin, args=['5'])
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result')
+
+lines = stdout.splitlines()
+found = False
+for line in lines:
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+        found = True
+if not found:
+    logging.info("stdout:\n{}".format(stdout))
+    raise RuntimeError('your patric only uses one worker thread')
+
+--- !python testcase-medium
+bonus=1
+exe.check_requirements(["ACTIVATE_MEDIUM_TESTCASES"])
+stdin = "(3657,8079),(3657,8079),(3657,8079)\n\
+(453,2018),(453,2018),(453,2018)\n\
+(5622,2292),(5622,2292),(5622,2292)\n\
+(5385,4625),(5385,4625),(5385,4625)\n\
+(901,2017),(901,2017),(901,2017)\n\
+(6169,4847),(6169,4847),(6169,4847)\n\
+(431,8261),(431,8261),(431,8261)\n\
+(8024,4346),(8024,4346),(8024,4346)\n\
+(9206,8477),(9206,8477),(9206,8477)\n\
+(2901,7792),(2901,7792),(2901,7792)\n\
+(565,7486),(565,7486),(565,7486)\n\
+(3741,8272),(3741,8272),(3741,8272)\n\
+(5768,6332),(5768,6332),(5768,6332)\n\
+(1344,8958),(1344,8958),(1344,8958)\n\
+(2129,2080),(2129,2080),(2129,2080)\n\
+(6406,6671),(6406,6671),(6406,6671)\n\
+(7616,5653),(7616,5653),(7616,5653)\n\
+(3996,8757),(3996,8757),(3996,8757)\n\
+(2956,4211),(2956,4211),(2956,4211)\n\
+(99,9092),(99,9092),(99,9092)\n\
+(2321,7927),(2321,7927),(2321,7927)\n\
+(7262,7543),(7262,7543),(7262,7543)\n\
+(3795,7316),(3795,7316),(3795,7316)\n\
+(2419,2692),(2419,2692),(2419,2692)\n\
+(5827,5750),(5827,5750),(5827,5750)\n\
+(2287,326),(2287,326),(2287,326)\n\
+(7932,5093),(7932,5093),(7932,5093)\n\
+(2848,3423),(2848,3423),(2848,3423)\n\
+(5216,521),(5216,521),(5216,521)\n\
+(3570,661),(3570,661),(3570,661)\n\
+(4475,2235),(4475,2235),(4475,2235)\n\
+(711,4823),(711,4823),(711,4823)\n"
+soll = "0 boundary and 0 interior"
+stdout, stderr = exe.run(input=stdin, args=['5'])
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result')
+
+lines = stdout.splitlines()
+found = False
+for line in lines:
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+        found = True
+if not found:
+    logging.info("stdout:\n{}".format(stdout))
+    raise RuntimeError('your patric only uses one worker thread')
+
+
+--- !python test the ref
+malus = 0.5
+exe.check_requirements(["ACTIVATE_DYNAMIC_TESTCASES"])
+old_flags = cflags
+cflags = []
+global ref
+ref = Compilation(ref, source_files={"triangle.h":{},"triangle.c":{"main":True}}).compile(flags=[])
+
+stdin = "(1,1),(2,4),(7,5)\n"
+stdout, stderr = ref.run(input=stdin)
+if "4 boundary and 6 interior" not in stdout:
+    raise RuntimeError(
+        "It seems as if the automated tests do not work on your system."\
+        "Please execute them on x1 or test manually with the given"\
+        "example inputs found in /ibr/courses/ws2425/bs/blatt5/")
+
+
+--- !python dynamic small
+bonus=1
+exe.check_requirements(["ACTIVATE_DYNAMIC_TESTCASES"])
+stdin = generate_testdata(50,0,10)
+soll,stderr2 = ref.run(input=stdin)
+stdout, stderr = exe.run(input=stdin, args=['10'])
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("expected part of stdout:\n{}".format(soll))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result')
+
+lines = stdout.splitlines()
+found = False
+for line in lines:
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+        found = True
+if not found:
+    logging.info("stdout:\n{}".format(stdout))
+    raise RuntimeError('your patric only uses one worker thread')
+
+--- !python dynamic small with thread_sanitizer
+thread_sanitizer=Compilation()
+malus = 1.5
+stdin = generate_testdata(50,0,10)
+soll,stderr2 = ref.run(input=stdin)
+# cmd_prefix needed to workaround a TSAN incompatibility with ALSR on Linux >= 6.6.X
+# See <https://github.com/google/sanitizers/issues/1716>
+stdout, stderr = thread_sanitizer.compile(flags=['-fsanitize=thread']).run( cmd_prefix=['setarch', '-R'], input=stdin, args=['10'] )
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("expected part of stdout:\n{}".format(soll))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result or thread_sanitizer failed')
+
+lines = stdout.splitlines()
+found = False
+for line in lines:
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+        found = True
+if not found:
+    logging.info("stdout:\n{}".format(stdout))
+    raise RuntimeError('your patric only uses one worker thread')
+
+--- !python dynamic large
+bonus=1
+exe.check_requirements(["ACTIVATE_DYNAMIC_TESTCASES", "ACTIVATE_LARGE_TESTCASES"])
+num_triangles = 500
+num_threads = 50
+stdin = generate_testdata(num_triangles,0,999)
+soll,stderr2 = ref.run(input=stdin)
+stdout, stderr = exe.run(input=stdin, args=[str(num_threads)])
+if soll not in stdout:
+    logging.info("input:\n{}".format(stdin))
+    logging.info("actual stdout:\n{}".format(stdout))
+    logging.info("expected part of stdout:\n{}".format(soll))
+    logging.info("actual stderr:\n{}".format(stderr))
+    raise RuntimeError('your patric computed not the expected result')
+
+lines = stdout.splitlines()
+found = False
+for line in lines:
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+        found = True
+if not found:
+    logging.info("stdout:\n{}".format(stdout))
+    raise RuntimeError('your patric only uses one worker thread')
+
+if "{} active".format(num_threads+1) in stdout:
+    logging.info("actual stdout:\n{}".format(stdout.replace("\r","\n")))
+    raise RuntimeError('you stated that there are more running threads ({}) than requested ({})'.format(num_threads+1, num_threads))
+
+if "{} finished".format(num_triangles+1) in stdout:
+    logging.info("actual stdout:\n{}".format(stdout.replace("\r","\n")))
+    raise RuntimeError('you stated that there are more finished worker threads ({}) than working sets ({})'.format(num_triangles+1, num_triangles))

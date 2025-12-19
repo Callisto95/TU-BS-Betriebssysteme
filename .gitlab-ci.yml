@@ -10,7 +10,7 @@ stages:
 
 default:
   before_script:
-    - ln -fs blatt4/ code
+    - ln -fs blatt5 code
 
 build-code:
   stage: build
@@ -29,6 +29,11 @@ run-tests:
     paths:
       - code/.result.txt
       - code/.result.json
+  tags:
+    # TSAN needs to disable ASLR, this is only possible on the
+    # docker-in-docker runners wheres personality(2) is not
+    # filtered by the seccomp profile.
+    - dind
 
 present-own:
   stage: present

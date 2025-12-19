@@ -10,7 +10,7 @@ stages:
 
 default:
   before_script:
-    - ln -fs blatt4/ code
+    - ln -fs blatt4 code
 
 build-code:
   stage: build

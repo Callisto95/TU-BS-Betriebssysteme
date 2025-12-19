@@ -609,6 +609,8 @@ class Compilation:
 
         assert found_main, "One source file must be attributed with 'main: true'"
 
+        compiler = Compilation.globals.get("CC", "gcc")
+
         object_files = []
         logging.debug("Compile sources: %s", self.source_files)
         for fn in self.source_files:
@@ -619,7 +621,7 @@ class Compilation:
                 object_files += [obj]
                 continue
             result = subprocess.run(
-                ["gcc", "-fdiagnostics-color=always"]
+                [compiler, "-fdiagnostics-color=always"]
                 + flags
                 + ["-c", "-o", obj, os.path.join(self.tmpdir, fn)],
                 stdout=subprocess.PIPE,
@@ -633,7 +635,7 @@ class Compilation:
         logging.debug("Link objects: %s", object_files)
 
         result = subprocess.run(
-            ["gcc", "-fdiagnostics-color=always"] + flags + object_files + ["-o", main],
+            [compiler, "-fdiagnostics-color=always"] + flags + object_files + ["-o", main],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )

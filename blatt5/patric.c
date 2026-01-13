@@ -13,6 +13,7 @@
 sem_t pushUpdate;
 sem_t counterLock;
 sem_t workerLock;
+bool exitApplication = false;
 int workerCount;
 
 // atomic_int boundaryPoints = ATOMIC_VAR_INIT(0);
@@ -23,8 +24,6 @@ int interiorPoints = 0;
 int finishedWorkers = 0;
 
 void finalizePoints(int boundary, int interior) {
-    // atomic_fetch_add(&boundaryPoints, boundary);
-    // atomic_fetch_add(&interiorPoints, interior);
     sem_wait(&counterLock);
     boundaryPoints += boundary;
     interiorPoints += interior;
@@ -33,7 +32,7 @@ void finalizePoints(int boundary, int interior) {
 
 // pthread_start can only take one argument, but countPoints needs two
 // wrapper for countPoints
-void* countWrapper(void* triangle) {
+void* threadWrapper(void* triangle) {
     sem_wait(&workerLock);
 
     countPoints(triangle, finalizePoints);
@@ -73,9 +72,9 @@ struct triangle* getTriangle(const char* line) {
     int x1, x2, x3 = INT_MIN;
     int y1, y2, y3 = INT_MIN;
 
-    sscanf(line, "(%d,%d),(%d,%d),(%d,%d)", &x1, &y1, &x2, &y2, &x3, &y3);
+    const int scannedVars = sscanf(line, "(%d,%d),(%d,%d),(%d,%d)", &x1, &y1, &x2, &y2, &x3, &y3);
 
-    if (x1 == INT_MIN || x2 == INT_MIN || x3 == INT_MIN || y1 == INT_MIN || y2 == INT_MIN || y3 == INT_MIN) {
+    if (scannedVars != 6) {
         return NULL;
     }
 
@@ -91,21 +90,35 @@ struct triangle* getTriangle(const char* line) {
 }
 
 void* outputStatus(void* _) {
-    while (true) {
+    bool doExit = false;
+    while (!doExit) {
         sem_wait(&pushUpdate);
+        sem_wait(&counterLock);
+
+        doExit = exitApplication;
 
         int activeWorkers;
         sem_getvalue(&workerLock, &activeWorkers);
 
-        printf("\rFound %d boundary and %d interior points, %d active threads, %d finished threads", boundaryPoints,
-               interiorPoints, workerCount - activeWorkers, finishedWorkers);
+        const int readInteriorPoints = interiorPoints;
+        const int readBoundaryPoints = boundaryPoints;
+        const int readActiveThreads = workerCount - activeWorkers;
+        const int readFinishedWorkers = finishedWorkers;
+
+        sem_post(&counterLock);
+
+        printf("\rFound %d boundary and %d interior points, %d active threads, %d finished threads", readBoundaryPoints,
+               readInteriorPoints, readActiveThreads, readFinishedWorkers);
         fflush(stdout);
     }
+
+    return NULL;
 }
 
-void startOutputThread(void) {
+pthread_t startOutputThread(void) {
     pthread_t thread;
     pthread_create(&thread, NULL, outputStatus, NULL);
+    return thread;
 }
 
 int main(const int argc, const char* argv[]) {
@@ -116,13 +129,31 @@ int main(const int argc, const char* argv[]) {
 
     sem_init(&workerLock, 0, workerCount);
 
-    startOutputThread();
+    const pthread_t outputThread = startOutputThread();
+
+    int readLines = 0;
 
     while (true) {
         char* readLine = NULL;
         size_t length = 0;
         if (getline(&readLine, &length, stdin) == -1) {
             free(readLine);
+
+            // make sure everything is finished and output is done
+            int rFinishedWorkers;
+            do {
+                sem_wait(&counterLock);
+                rFinishedWorkers = finishedWorkers;
+                sem_post(&counterLock);
+            } while (rFinishedWorkers != readLines);
+
+            sem_wait(&counterLock);
+            exitApplication = true;
+            sem_post(&counterLock);
+
+            sem_post(&pushUpdate);
+            pthread_join(outputThread, NULL);
+
             exit(EXIT_SUCCESS);
         }
 
@@ -143,20 +174,14 @@ int main(const int argc, const char* argv[]) {
         pthread_attr_init(&attributes);
         pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
 
-        if (pthread_create(&thread, &attributes, countWrapper, triangle) != 0) {
+        if (pthread_create(&thread, &attributes, threadWrapper, triangle) != 0) {
             perror("Thread creation failed");
             exit(EXIT_FAILURE);
         }
 
-        sem_wait(&counterLock);
-        sem_post(&counterLock);
+        readLines++;
+        free(readLine);
     }
 
-    // TODO: remove marker
-    // ACTIVATE_MEDIUM_TESTCASES_NOT_IMPLEMENTED_MARKER: remove this line to enable medium size testdata
-    // ACTIVATE_LARGE_TESTCASES_NOT_IMPLEMENTED_MARKER: remove this line to enable large size testdata
-    // ACTIVATE_DYNAMIC_TESTCASES_NOT_IMPLEMENTED_MARKER: remove this line to enable dynamically generated testdata
-    // MULTITHREADING_NOT_IMPLEMENTED_MARKER: remove this line to activate testcases which expect multiple worker
-    // threads
     return 1;
 }

@@ -10,142 +10,10 @@
 
 #include "triangle.h"
 
-// start: --------------- lilo.c ---------------
-struct tri_list_element {
-    struct triangle* value;
-    struct tri_list_element* next;
-};
-
-struct tri_list {
-    struct tri_list_element* head;
-};
-
-struct tri_list_element* tri_allocate_and_initialize_element(struct triangle* value, struct tri_list_element* parent) {
-    struct tri_list_element* new_element = malloc(sizeof(struct tri_list_element));
-
-    if (!new_element) {
-        perror("cannot continue: malloc error");
-        exit(EXIT_FAILURE);
-    }
-
-    new_element->value = value;
-    new_element->next = NULL;
-
-    if (parent) {
-        parent->next = new_element;
-    }
-
-    return new_element;
-}
-
-bool tri_list_append(struct tri_list* list, struct triangle* value) {
-    if (list->head == NULL) {
-        struct tri_list_element* new_element = tri_allocate_and_initialize_element(value, NULL);
-
-        list->head = new_element;
-        return value;
-    }
-
-    struct tri_list_element* current_element = list->head;
-    struct tri_list_element* last_element = NULL;
-
-    do {
-        if (current_element->value == value) {
-            return -1;
-        }
-
-        last_element = current_element;
-        current_element = current_element->next;
-    } while (current_element);
-
-    tri_allocate_and_initialize_element(value, last_element);
-
-    return value;
-}
-
-struct triangle* tri_list_pop(struct tri_list* list) {
-    if (!list->head) {
-        return NULL;
-    }
-
-    struct triangle* value = list->head->value;
-
-    struct tri_list_element* old_initial = list->head;
-    list->head = old_initial->next;
-    free(old_initial);
-
-    return value;
-}
-// end  : --------------- lilo.c ---------------
-
 sem_t pushUpdate;
 sem_t counterLock;
-
-pthread_t* workers;
+sem_t workerLock;
 int workerCount;
-
-// start: --------------- worker list ---------------
-void insertWorker(const pthread_t worker) {
-    bool couldInsert = false;
-
-    for (int i = 0; i < workerCount; i++) {
-        // printf("iW: \n%lu\n", workers[i]);
-        
-        if (workers[i] == 0) {
-            workers[i] = worker;
-            couldInsert = true;
-            break;
-        }
-    }
-
-    if (!couldInsert) {
-        fprintf(stderr, "could not insert worker into list!");
-    }
-}
-
-void deleteWorker(const pthread_t worker) {
-    // keep list sorted
-    // end of list is always 0 (if not filled)
-    int moveStart = -1;
-
-    for (int i = 0; i < workerCount; i++) {
-        if (workers[i] == worker) {
-            moveStart = i;
-            break;
-        }
-    }
-
-    if (moveStart == -1) {
-        fprintf(stderr, "worker is not in list!");
-        return;
-    }
-
-    for (int x = moveStart; x < workerCount; x++) {
-        if (x + 1 == workerCount) {
-            workers[x] = 0;
-        } else {
-            workers[x] = workers[x + 1];
-        }
-    }
-}
-
-bool allWorkersUsed(void) {
-    return workers[workerCount - 1] != 0;
-}
-
-int countActiveWorkers(void) {
-    for (int i = 0; i < workerCount; i++) {
-        // printf("cAW: \n%lu\n", workers[i]);
-        
-        if (workers[i] == 0) {
-            return i;
-        }
-    }
-
-    return workerCount;
-}
-
-// end  : --------------- worker list ---------------
 
 // atomic_int boundaryPoints = ATOMIC_VAR_INIT(0);
 // atomic_int interiorPoints = ATOMIC_VAR_INIT(0);
@@ -166,12 +34,17 @@ void finalizePoints(int boundary, int interior) {
 // pthread_start can only take one argument, but countPoints needs two
 // wrapper for countPoints
 void* countWrapper(void* triangle) {
+    sem_wait(&workerLock);
+
     countPoints(triangle, finalizePoints);
     free(triangle);
+
     sem_wait(&counterLock);
     finishedWorkers += 1;
-    deleteWorker(pthread_self());
     sem_post(&counterLock);
+
+    sem_post(&workerLock);
+
     sem_post(&pushUpdate);
     return NULL;
 }
@@ -220,8 +93,12 @@ struct triangle* getTriangle(const char* line) {
 void* outputStatus(void* _) {
     while (true) {
         sem_wait(&pushUpdate);
-        printf("\rFound %d boundary and %d interior points, %d active threads, %d finished threads", boundaryPoints,
-               interiorPoints, countActiveWorkers(), finishedWorkers);
+
+        int activeWorkers;
+        sem_getvalue(&workerLock, &activeWorkers);
+
+        fprintf(stderr, "\rFound %d boundary and %d interior points, %d active threads, %d finished threads", boundaryPoints,
+               interiorPoints, workerCount - activeWorkers, finishedWorkers);
     }
 }
 
@@ -231,19 +108,12 @@ void startOutputThread(void) {
 }
 
 int main(const int argc, const char* argv[]) {
-    sem_init(&pushUpdate, false, 0);
-    sem_init(&counterLock, false, 1);
+    sem_init(&pushUpdate, 0, 0);
+    sem_init(&counterLock, 0, 1);
 
     workerCount = parseWorkerCount(argc, argv);
-    workers = calloc(workerCount, sizeof(pthread_t));
 
-    if (workers == NULL) {
-        perror("allocation failed, cannot continue");
-        exit(EXIT_FAILURE);
-    }
-
-    struct tri_list tri_buffer;
-    tri_buffer.head = NULL;
+    sem_init(&workerLock, 0, workerCount);
 
     startOutputThread();
 
@@ -266,24 +136,19 @@ int main(const int argc, const char* argv[]) {
             continue;
         }
 
-        tri_list_append(&tri_buffer, triangle);
+        pthread_t thread;
+        pthread_attr_t attributes;
 
-        struct triangle* current_tri;
-        while (!allWorkersUsed() && (current_tri = tri_list_pop(&tri_buffer)) != NULL) {
-            pthread_t thread;
-            pthread_attr_t attributes;
+        pthread_attr_init(&attributes);
+        pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
 
-            pthread_attr_init(&attributes);
-            pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
-            if (pthread_create(&thread, &attributes, countWrapper, current_tri) != 0) {
-                perror("Thread creation failed");
-                exit(EXIT_FAILURE);
-            }
-            
-            sem_wait(&counterLock);
-            insertWorker(thread);
-            sem_post(&counterLock);
+        if (pthread_create(&thread, &attributes, countWrapper, triangle) != 0) {
+            perror("Thread creation failed");
+            exit(EXIT_FAILURE);
         }
+
+        sem_wait(&counterLock);
+        sem_post(&counterLock);
     }
 
     // TODO: remove marker

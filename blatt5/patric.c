@@ -97,8 +97,9 @@ void* outputStatus(void* _) {
         int activeWorkers;
         sem_getvalue(&workerLock, &activeWorkers);
 
-        fprintf(stderr, "\rFound %d boundary and %d interior points, %d active threads, %d finished threads", boundaryPoints,
+        printf("\rFound %d boundary and %d interior points, %d active threads, %d finished threads", boundaryPoints,
                interiorPoints, workerCount - activeWorkers, finishedWorkers);
+        fflush(stdout);
     }
 }
 

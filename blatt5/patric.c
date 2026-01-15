@@ -10,15 +10,13 @@
 
 #include "triangle.h"
 
+int workerCount;
+
 sem_t pushUpdate;
 sem_t counterLock;
 sem_t workerLock;
-bool exitApplication = false;
-int workerCount;
 
-// atomic_int boundaryPoints = ATOMIC_VAR_INIT(0);
-// atomic_int interiorPoints = ATOMIC_VAR_INIT(0);
-// atomic_int finishedWorkers = ATOMIC_VAR_INIT(0);
+bool continueRunning = true;
 int boundaryPoints = 0;
 int interiorPoints = 0;
 int finishedWorkers = 0;
@@ -90,19 +88,19 @@ struct triangle* getTriangle(const char* line) {
 }
 
 void* outputStatus(void* _) {
-    bool doExit = false;
-    while (!doExit) {
+    bool doContinue = true;
+    while (doContinue) {
         sem_wait(&pushUpdate);
         sem_wait(&counterLock);
 
-        doExit = exitApplication;
+        doContinue = continueRunning;
 
-        int activeWorkers;
-        sem_getvalue(&workerLock, &activeWorkers);
+        int inactiveWorkers;
+        sem_getvalue(&workerLock, &inactiveWorkers);
 
         const int readInteriorPoints = interiorPoints;
         const int readBoundaryPoints = boundaryPoints;
-        const int readActiveThreads = workerCount - activeWorkers;
+        const int readActiveThreads = workerCount - inactiveWorkers;
         const int readFinishedWorkers = finishedWorkers;
 
         sem_post(&counterLock);
@@ -121,6 +119,38 @@ pthread_t startOutputThread(void) {
     return thread;
 }
 
+void exitPatric(const pthread_t outputThread, const int readLines) {
+    // make sure everything is finished and output is done
+    int readFinishedWorkers;
+    do {
+        sem_wait(&counterLock);
+        readFinishedWorkers = finishedWorkers;
+        sem_post(&counterLock);
+    } while (readFinishedWorkers != readLines);
+
+    sem_wait(&counterLock);
+    continueRunning = false;
+    sem_post(&counterLock);
+
+    sem_post(&pushUpdate);
+    pthread_join(outputThread, NULL);
+
+    exit(EXIT_SUCCESS);
+}
+
+void startThread(struct triangle* triangle) {
+    pthread_t thread;
+    pthread_attr_t attributes;
+
+    pthread_attr_init(&attributes);
+    pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
+
+    if (pthread_create(&thread, &attributes, threadWrapper, triangle) != 0) {
+        perror("Thread creation failed");
+        exit(EXIT_FAILURE);
+    }
+}
+
 int main(const int argc, const char* argv[]) {
     sem_init(&pushUpdate, 0, 0);
     sem_init(&counterLock, 0, 1);
@@ -134,53 +164,29 @@ int main(const int argc, const char* argv[]) {
     int readLines = 0;
 
     while (true) {
-        char* readLine = NULL;
+        char* currentLine = NULL;
         size_t length = 0;
-        if (getline(&readLine, &length, stdin) == -1) {
-            free(readLine);
+        if (getline(&currentLine, &length, stdin) == -1) {
+            free(currentLine);
 
-            // make sure everything is finished and output is done
-            int rFinishedWorkers;
-            do {
-                sem_wait(&counterLock);
-                rFinishedWorkers = finishedWorkers;
-                sem_post(&counterLock);
-            } while (rFinishedWorkers != readLines);
-
-            sem_wait(&counterLock);
-            exitApplication = true;
-            sem_post(&counterLock);
-
-            sem_post(&pushUpdate);
-            pthread_join(outputThread, NULL);
-
-            exit(EXIT_SUCCESS);
+            exitPatric(outputThread, readLines);
         }
 
-        if (strlen(readLine) > sysconf(_SC_LINE_MAX)) {
+        if (strlen(currentLine) > sysconf(_SC_LINE_MAX)) {
             continue;
         }
 
-        struct triangle* triangle = getTriangle(readLine);
+        struct triangle* triangle = getTriangle(currentLine);
 
         if (triangle == NULL) {
             fprintf(stderr, "invalid tri format\n");
             continue;
         }
 
-        pthread_t thread;
-        pthread_attr_t attributes;
-
-        pthread_attr_init(&attributes);
-        pthread_attr_setdetachstate(&attributes, PTHREAD_CREATE_DETACHED);
-
-        if (pthread_create(&thread, &attributes, threadWrapper, triangle) != 0) {
-            perror("Thread creation failed");
-            exit(EXIT_FAILURE);
-        }
+        startThread(triangle);
 
         readLines++;
-        free(readLine);
+        free(currentLine);
     }
 
     return 1;

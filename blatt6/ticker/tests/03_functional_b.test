@@ -1,0 +1,200 @@
+--- !inherit 01_base.test
+--- !yaml
+requirements: [BASICB]
+--- !python
+malus = 0.1 # this isn't a testcase
+
+import select
+import time
+import signal
+import psutil
+
+def slurp(proc):
+  """Slurp reads out all data from stderr and stdout"""
+  retVal = bytes()
+  while True:
+    rlist = [proc.stderr, proc.stdout]
+    (rlist, _0, _1) = select.select(rlist, [],[], 0.2)
+    for fd in rlist:
+       x = fd.read1(4096)
+       retVal += x
+    if not rlist or proc.poll() is not None:
+       break
+  return retVal.decode()
+
+def find(lines, pattern):
+    ret = None
+    for line in lines:
+        if pattern in line:
+           ret = line
+           break
+    print("line with pattern '{}': {}".format(pattern, repr(ret)))
+    if ret is None:
+       raise RuntimeError("Could not find %s-line in output" % pattern)
+    return ret
+
+def ctrl_c(p):
+    print("  unittest: send Ctrl-C")
+    p.send_signal(signal.SIGINT)
+
+--- !python Testen auf Ausgabe in Signal-Handler
+malus=1
+
+def interrupt_first_child(parent_pid):
+    parent = psutil.Process(parent_pid)
+    if len(parent.children()) > 0:
+        child = parent.children()[0]
+        child.send_signal(signal.SIGINT)
+    else:
+        print("Skipping signal test, process does not run")
+
+class Call:
+    def __init__(self, id, name):
+        self.id = id
+        self.name = name
+        self.parent = None
+        self.children = []
+
+    def set_parent(self, parent):
+        self.parent = parent
+
+    def add_child(self, child):
+        self.children.append(child)
+
+    def __eq__(self, other):
+        return self.id == other.id
+
+exe = Compilation().compile()
+trace_functions = ['printf', 'puts', 'fprintf', 'fwrite'] # These functions will be traced.
+signal_functions = ['sigaction', 'signal'] # These functions will be used for registering a signal handler.
+log_file, p = exe.signal_trace(["1"], trace_functions)
+
+# Give the application some time to setup its signal handlers.
+# TODO: Optimize.
+time.sleep(6)
+
+interrupt_first_child(p.pid)
+time.sleep(2)
+interrupt_first_child(p.pid)
+slurp(p)
+p.wait(7)
+
+with open(log_file, "r") as file:
+    call_list = []
+    calls = []
+
+    for line in file.readlines():
+        call = eval(line)
+        if call[0] == 'call':
+            call_list.append(call)
+
+    # Build up call stack hierarchy.
+    for worker_call in call_list:
+        worker_call_obj = next(filter(lambda obj: obj.id == worker_call[2], calls), Call(worker_call[2], worker_call[3]))
+        for tree_call in call_list:
+            tree_call_obj = next(filter(lambda obj: obj.id == tree_call[2], calls), Call(tree_call[2], tree_call[3]))
+            # Find all children of the worker call.
+            if worker_call[2] == tree_call[1]:
+                if worker_call_obj not in calls:
+                    calls.append(worker_call_obj)
+                if tree_call_obj not in calls:
+                    calls.append(tree_call_obj)
+
+                tree_call_obj.set_parent(worker_call_obj)
+                worker_call_obj.add_child(tree_call_obj)
+
+    # Find traced functions that are called inside a signal-handler.
+    for trace_function in trace_functions:
+        for function_call in [call for call in calls if call.name == trace_function]:
+            while function_call is not None and function_call.parent is not None:
+                # If a signal handler calls a traced function abort because that is forbidden.
+                if function_call.parent.name in signal_functions:
+                    raise RuntimeError(
+                        f'Die Funktion ({trace_function}) wird durch den Signal-Handler ({function_call.name}) aufgerufen, obwohl ({trace_function}) nicht signal-safe ist.'
+                        ' Bitte vermeide jegliche Ausgabe im Signal-Handler.'
+                    )
+                function_call = function_call.parent
+
+
+--- !python Standardlauf mit ./ticker 2
+bonus=1.5
+exe = Compilation().compile()
+p = exe.spawn(["2"])
+
+txt = slurp(p)
+if txt == "":
+   raise RuntimeError("The program does not make output on stderr before first Ctrl-C.")
+print("./ticker 2:", repr(txt))
+
+ctrl_c(p)
+
+txt = slurp(p)
+if txt == "":
+   raise RuntimeError("The program does not make output, when race is started. (after first Ctrl-C.)")
+print("./ticker 2:", repr(txt))
+
+# First Round
+time.sleep(1)
+ctrl_c(p)
+
+txt = slurp(p)
+print("./ticker 2:", repr(txt))
+if "0:01" not in txt:
+   raise RuntimeError("The program does not output correct time, after ca 1 second of sleep")
+
+# Second Round and race is over
+time.sleep(2)
+print("  unittest: send Ctrl-C")
+p.send_signal(signal.SIGINT)
+
+# Wait 2 seconds maximal until process terminates
+i = 0
+while p.poll() is None and i < 20:
+   time.sleep(0.1)
+   i += 1
+
+txt = slurp(p)
+print("./ticker 2:", repr(txt))
+if "0:02" not in txt:
+   raise RuntimeError("Program did not output the 0:02 second duration of second round")
+
+# Investigate on sum, and fastest durations
+lines = txt.split("\n")
+line_sum     = find(lines, "sum")
+line_fastest = find(lines, "fastest")
+
+if "0:01" not in line_fastest:
+   raise RuntimeError("Fastest round should be around 0:01 second")
+
+if "0:03" not in line_sum:
+   raise RuntimeError("Incorrect duration for the whole race, should be around 0:03 seconds")
+
+if p.poll() != 0:
+   raise RuntimeError("Program did not terminate correctly.")
+
+p.wait()
+
+
+--- !python Lauf mit Abbruch mit ./ticker 100
+bonus=1.5
+exe = Compilation().compile()
+exe.check_requirements(["SIGQUIT"])
+p = exe.spawn(["100"])
+
+# Start race
+slurp(p)
+ctrl_c(p)
+
+time.sleep(0.5)
+
+slurp(p)
+p.send_signal(signal.SIGQUIT)
+print("  unittest: SIGQUIT")
+
+txt = slurp(p)
+print("./ticker 100:", txt)
+if 'cancel' not in txt:
+   raise RuntimeError("Program does not indicate the race was canclled")
+
+if p.poll() != 0:
+   raise RuntimeError("Program did not terminate correctly.")

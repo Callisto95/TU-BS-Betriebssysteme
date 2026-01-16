@@ -1,0 +1,77 @@
+--- !inherit 01_base.test
+--- !yaml
+requirements: [ARGUMENT]
+
+--- !python
+malus = 0.1 # this isn't a testcase
+
+import select
+import time
+import signal
+import psutil
+
+def slurp(proc):
+  """Slurp reads out all data from stderr and stdout"""
+  retVal = bytes()
+  while True:
+    rlist = [proc.stderr, proc.stdout]
+    (rlist, _0, _1) = select.select(rlist, [],[], 0.2)
+    for fd in rlist:
+       x = fd.read1(4096)
+       retVal += x
+    if not rlist or proc.poll() is not None:
+       break
+  return retVal.decode()
+
+def find(lines, pattern):
+    ret = None
+    for line in lines:
+        if pattern in line:
+           ret = line
+           break
+    print("line with pattern '{}': {}".format(pattern, repr(ret)))
+    if ret is None:
+       raise RuntimeError("Could not find %s-line in output" % pattern)
+    return ret
+
+def ctrl_c(p):
+    print("  unittest: send Ctrl-C")
+    p.send_signal(signal.SIGINT)
+
+--- !python Invalid lap arguments (./ticker abc)
+bonus=0.25
+exe = Compilation().compile()
+exe.run(["abc"], must_fail=True)
+
+--- !python Invalid lap arguments (./ticker -1)
+bonus=0.25
+exe = Compilation().compile()
+exe.run(["-1"], must_fail=True)
+
+--- !python Invalid lap arguments (./ticker 23abc)
+bonus=0.25
+exe = Compilation().compile()
+exe.run(["23abc"], must_fail=True)
+
+--- !python Invalid lap arguments (./ticker 0)
+bonus=0.25
+exe = Compilation().compile()
+exe.run(["0"], must_fail=True)
+
+--- !python Valid lap arguments (./ticker 0x3)
+bonus=0.25
+exe = Compilation().compile()
+p = exe.spawn(["0x3"])
+
+slurp(p)
+ctrl_c(p)
+print("./ticker 0x3", slurp(p).strip())
+
+for i in range(0, 3):
+    if p.poll() != None:
+        raise RuntimeError("Programm hat sich frühzeitig beendet")
+    ctrl_c(p)
+    print("./ticker 0x3:", slurp(p).strip())
+
+if p.poll() != 0:
+   raise RuntimeError("Programm hat sich nicht ordnungsgemäß beendet")

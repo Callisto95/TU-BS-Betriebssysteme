@@ -10,30 +10,54 @@ stages:
 
 default:
   before_script:
-    - ln -fs blatt5 code
+    - ln -fs blatt6 code
 
 build-code:
   stage: build
   script:
+    - make -C blatt6/concat
+    - make -C blatt6/ticker
+    - exit 0
     - cd code && make
+  # since we test ticker and concat independently, it's fine if the build
+  # for one of them fails (we check this again in the test stage anyhow).
+  allow_failure: true
+
+run-tests-concat:
+  stage: test
+  script:
+    - cd blatt6/concat && python3 tests/unittest.py --json ".result.json"
+  artifacts:
+    when: always
+    expire_in: 1 day
+    paths:
+      - blatt6/concat/.result.json
+  allow_failure: true
+
+run-tests-ticker:
+  stage: test
+  script:
+    - cd blatt6/ticker && python3 tests/unittest.py --json ".result.json"
+  artifacts:
+    when: always
+    expire_in: 1 day
+    paths:
+      - blatt6/ticker/.result.json
+  allow_failure: true
 
 run-tests:
   stage: test
-  allow_failure: true
+  needs:
+    - run-tests-concat
+    - run-tests-ticker
   script:
-    - rm -f code/.result.txt code/.result.json
-    - cd code && python3 tests/unittest.py --json ".result.json" --result ".result.txt"
+    - echo failed > blatt6/.result.txt
+    - cd blatt6 && env PYTHONPATH=./ticker/tests ./make-result ./concat/.result.json ./ticker/.result.json
   artifacts:
     when: always
     expire_in: never
     paths:
-      - code/.result.txt
-      - code/.result.json
-  tags:
-    # TSAN needs to disable ASLR, this is only possible on the
-    # docker-in-docker runners wheres personality(2) is not
-    # filtered by the seccomp profile.
-    - dind
+      - blatt6/.result.txt
 
 present-own:
   stage: present

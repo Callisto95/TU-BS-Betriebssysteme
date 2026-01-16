@@ -1,0 +1,54 @@
+--- !yaml
+sources:
+  concat.c:
+    main: true
+cflags: [-std=c11, -D_XOPEN_SOURCE=700, -Wall, -Werror, -pedantic, -g, -ggdb]
+
+--- !python concat compiles
+malus = 1
+# First we compile the students solution with the given main
+exe = Disabler("Compilation failed") # Disable following if exe was not ovrewritten
+exe = Compilation().compile()
+
+--- !source pause
+#include <unistd.h>
+
+int main() {
+  pause();
+  return 0;
+}
+
+
+
+--- !python_helper helper functions
+exe = Compilation().compile(fail_silent=True)
+pause_exe = Compilation(pause, source_files={"pause.c":{'content':"", 'main':True}}).compile(fail_silent=True)
+from random import randint
+import subprocess
+
+def referenz(max, awk, grep):
+    command = """seq 2 {} | awk '{}' | grep '{}' """.format(
+        max, awk, grep)
+    return subprocess.check_output(command, shell=True)
+
+def test_concat(MAX, AWK, GREP, OUT):
+    MAX = str(MAX)
+    soll = referenz(MAX, AWK, GREP).decode(errors='replace')
+    stdout, stderr = exe.run(args=[MAX, AWK, GREP, OUTPUT])
+    if OUT != "-":
+        try:
+            with open(OUT,"r") as outfile:
+                stdout = outfile.read()
+        except Exception as e:
+            raise RuntimeError("Failed reading output file %s %s", OUT, e)
+    if soll not in stdout:
+        logging.info("MAX: {}".format(MAX))
+        logging.info("AWK_VORSCHRIFT: {}".format(AWK))
+        logging.info("GREP_VORSCHRIFT: {}".format(GREP))
+        logging.info("OUTPUT_FILE: {}".format(OUTPUT))
+        logging.info("expected stdout:\n{}".format(soll))
+        logging.info("actual stdout:\n{}".format(stdout))
+        logging.info("actual stderr:\n{}".format(stderr))
+        raise RuntimeError('your concat computed not the expected result')
+
+

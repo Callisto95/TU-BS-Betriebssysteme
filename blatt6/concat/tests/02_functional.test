@@ -1,0 +1,176 @@
+--- !inherit 01_base.test
+
+--- !python seq generates numbers
+#ifdef TUTOR
+bonus=1
+#endif
+exe.check_requirements(["SEQ"])
+MAX = randint(5,10)
+AWK = "{print}"
+GREP = ""
+OUTPUT = "-"
+
+test_concat(MAX, AWK, GREP, OUTPUT)
+
+--- !python awk computes squares
+bonus=1
+exe.check_requirements(["SEQ", "AWK"])
+MAX = randint(5,10)
+AWK = "{print $1*$1}"
+GREP = ""
+OUTPUT = "-"
+
+test_concat(MAX, AWK, GREP, OUTPUT)
+
+--- !python awk computes sum
+bonus=1
+exe.check_requirements(["SEQ", "AWK"])
+MAX = randint(5,10)
+AWK = "{a=a+$1} END{print a}"
+GREP = ""
+OUTPUT = "-"
+
+test_concat(MAX, AWK, GREP, OUTPUT)
+
+--- !python grep filters numbers with two identical digits
+bonus=1.5
+exe.check_requirements(["SEQ", "AWK", "GREP"])
+MAX = randint(50,100)
+AWK = "{print}"
+GREP = r"\(.\)\1"
+OUTPUT = "-"
+
+test_concat(MAX, AWK, GREP, OUTPUT)
+
+--- !python output file
+bonus=0.75
+exe.check_requirements(["SEQ", "OUTPUT"])
+import tempfile
+import shutil
+tempdir = tempfile.mkdtemp(prefix="concat_test_")
+
+MAX = randint(5,10)
+AWK = "{print}"
+GREP = ""
+OUTPUT = os.path.join(tempdir, "testfile")
+
+
+try:
+    test_concat(MAX, AWK, GREP, OUTPUT)
+finally:
+    shutil.rmtree(tempdir)
+
+
+--- !python output file mode
+bonus=0.75
+exe.check_requirements(["SEQ", "OUTPUT"])
+import tempfile
+import shutil
+from stat import S_IMODE
+tempdir = tempfile.mkdtemp(prefix="concat_test_")
+
+MAX = randint(5,10)
+AWK = "{print}"
+GREP = ""
+OUTPUT = os.path.join(tempdir, "testfile")
+expected_mode = 0o640
+
+
+try:
+    test_concat(MAX, AWK, GREP, OUTPUT)
+    actual_mode = S_IMODE(os.stat(OUTPUT).st_mode)
+    if actual_mode != expected_mode:
+        logging.info("expected mode: %s", oct(expected_mode))
+        logging.info("actual mode: %s", oct(actual_mode))
+        raise RuntimeError('your output file has not the expected file mode')
+finally:
+    shutil.rmtree(tempdir)
+
+
+--- !python exec syscalls present
+malus = 6
+exe.check_requirements(["SEQ", "AWK", "GREP"])
+MAX = "96"
+AWK = "{print}"
+GREP = "33"
+OUTPUT = "-"
+
+run_result, syscalls = exe.strace(syscalls="execve", args=[MAX, AWK, GREP, OUTPUT])
+
+seq_found = False
+awk_found = False
+grep_found = False
+for syscall in syscalls:
+    if "exec" in syscall:
+        if '["seq", "2", "96"]' in syscall:
+            seq_found = True
+        elif '["awk", "{print}"]' in syscall:
+            awk_found = True
+        elif '["grep", "33"]' in syscall or '["grep", "33", "-"]' in syscall:
+            grep_found = True
+
+if not (seq_found and awk_found and grep_found):
+    logging.info("MAX: {}".format(MAX))
+    logging.info("AWK_VORSCHRIFT: {}".format(AWK))
+    logging.info("GREP_VORSCHRIFT: {}".format(GREP))
+    logging.info("OUTPUT_FILE: {}".format(OUTPUT))
+    logging.info("actual stdout:\n{}".format(run_result.stdout))
+    logging.info("actual stderr:\n{}".format(run_result.stderr))
+    logging.info("actual syscalls:\n" + "".join(syscalls))
+    logging.info("seq found: {}".format(seq_found))
+    logging.info("awk found: {}".format(awk_found))
+    logging.info("grep found: {}".format(grep_found))
+
+if not seq_found:
+    raise RuntimeError('could not find exec syscalls for seq')
+if not awk_found:
+    raise RuntimeError('could not find exec syscalls for awk')
+if not grep_found:
+    raise RuntimeError('could not find exec syscalls for grep')
+
+
+---!python superflous files are closed
+try:
+    import time
+    import psutil
+except:
+    raise MissingRequirementError("missing psutil module")
+malus = 2
+exe.check_requirements(["SEQ", "AWK", "GREP"])
+MAX = "96"
+AWK = "{print}"
+GREP = "33"
+OUTPUT = str(os.path.join(exe.tmpdir, "outfile"))
+
+tmp = pause_exe.tmpdir
+px = os.path.join(tmp, "main")
+os.symlink(px, os.path.join(tmp, "awk"))
+os.symlink(px, os.path.join(tmp, "grep"))
+os.symlink(px, os.path.join(tmp, "seq"))
+
+env = {'PATH': tmp}
+p = exe.spawn([MAX, AWK, GREP, OUTPUT], env=env)
+time.sleep(1)
+ps = psutil.Process(p.pid)
+num_childs = len(ps.children())
+if num_childs != 3:
+    for c in ps.children():
+        c.kill()
+    ps.kill()
+    p.communicate()
+    raise RuntimeError("Not the expected number of children! Found " + str(num_childs))
+
+wrong_num_fds = None
+for c in ps.children():
+    if c.num_fds() != 3:
+        wrong_num_fds = (str(c.name()), str(c.num_fds()), c.open_files())
+for c in ps.children():
+    c.kill()
+ps.kill()
+p.communicate()
+if wrong_num_fds:
+    raise RuntimeError("child "
+                       + wrong_num_fds[0]
+                       + " has not the expected number of 3 open files. Found "
+                       + wrong_num_fds[1]
+                       )

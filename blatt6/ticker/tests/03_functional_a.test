@@ -1,0 +1,132 @@
+--- !inherit 01_base.test
+--- !yaml
+requirements: [BASICA]
+
+--- !python
+malus = 0.1 # this isn't a testcase
+
+import select
+import time
+import signal
+import psutil
+
+def slurp(proc):
+  """Slurp reads out all data from stderr and stdout"""
+  retVal = bytes()
+  while True:
+    rlist = [proc.stderr, proc.stdout]
+    (rlist, _0, _1) = select.select(rlist, [],[], 0.2)
+    for fd in rlist:
+       x = fd.read1(4096)
+       retVal += x
+    if not rlist or proc.poll() is not None:
+       break
+  return retVal.decode()
+
+def find(lines, pattern):
+    ret = None
+    for line in lines:
+        if pattern in line:
+           ret = line
+           break
+    print("line with pattern '{}': {}".format(pattern, repr(ret)))
+    if ret is None:
+       raise RuntimeError("Could not find %s-line in output" % pattern)
+    return ret
+
+def ctrl_c(p):
+    print("  unittest: send Ctrl-C")
+    p.send_signal(signal.SIGINT)
+
+
+
+--- !python Lauf mit ./ticker 6
+bonus=0.5
+exe = Compilation().compile()
+p = exe.spawn(["6"])
+
+slurp(p)
+ctrl_c(p)
+print("./ticker 6", slurp(p).strip())
+
+for i in range(0, 6):
+    if p.poll() != None:
+        raise RuntimeError("Programm hat sich frühzeitig beendet")
+    ctrl_c(p)
+    print("./ticker 6:", slurp(p).strip())
+
+if p.poll() != 0:
+   raise RuntimeError("Programm hat sich nicht ordnungsgemäß beendet")
+
+
+
+--- !python Lauf mit ./ticker 11
+bonus=0.5
+exe = Compilation().compile()
+p = exe.spawn(["11"])
+
+slurp(p)
+ctrl_c(p)
+print("./ticker 11", slurp(p).strip())
+
+for i in range(0, 11):
+    if p.poll() != None:
+        raise RuntimeError("Programm hat sich frühzeitig beendet")
+    ctrl_c(p)
+    print("./ticker 11:", slurp(p).strip())
+
+if p.poll() != 0:
+   raise RuntimeError("Programm hat sich nicht ordnungsgemäß beendet")
+
+
+--- !python Lauf mit drittem Signal
+bonus=0.75
+exe = Compilation().compile()
+p = exe.spawn(["2"])
+
+slurp(p)
+
+ctrl_c(p)
+txt=slurp(p)
+if p.poll() != None:
+	raise RuntimeError("Programm hat sich frühzeitig beendet1")
+print("./ticker 2", repr(txt))
+
+#First round
+ctrl_c(p)
+txt = slurp(p)
+print("./ticker 2:", repr(txt))
+if p.poll() != None:
+	raise RuntimeError("Programm hat sich frühzeitig beendet2")
+
+#Punkte zählen
+print("  unittest: Punkte zählen mit SIGUSR1")
+for i in range(0,5):
+	p.send_signal(signal.SIGUSR1)
+	##print("./ticker 2:", slurp(p).strip())
+	txt = slurp(p)
+	if txt != "":
+		raise RuntimeError("Programm hat sich bei falschem Signal fortgesetzt!")
+
+ctrl_c(p)
+
+# Wait 2 seconds maximal until process terminates
+i = 0
+while p.poll() is None and i < 20:
+   time.sleep(0.1)
+   i += 1
+
+txt = slurp(p)
+print("./ticker 2:", repr(txt))
+
+if "points" not in txt:
+	raise RuntimeError("Programm hat nicht \"points\" ausgegeben")
+
+lines = txt.split("\n")
+line_points     = find(lines, "points")
+if "5" not in line_points:
+	raise RuntimeError("points sollten 5 sein")
+
+if p.poll() != 0:
+   raise RuntimeError("Programm hat sich nicht ordnungsgemäß beendet")
+

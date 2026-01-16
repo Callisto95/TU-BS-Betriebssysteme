@@ -1,0 +1,54 @@
+--- !inherit 01_base.test
+--- !yaml
+requirements: [BASIC]
+
+--- !python
+malus = 0.1 # this isn't a testcase
+
+import select
+import time
+import signal
+import sys
+
+def slurp(proc):
+  """Slurp reads out all data from stderr and stdout"""
+  retVal = bytes()
+  while True:
+    rlist = [proc.stderr, proc.stdout]
+    (rlist, _0, _1) = select.select(rlist, [],[], 0.2)
+    for fd in rlist:
+       x = fd.read1(4096)
+       retVal += x
+    if not rlist or proc.poll() is not None:
+       break
+  return retVal.decode()
+
+
+def ctrl_c(p):
+    print("  unittest: send Ctrl-C")
+    p.send_signal(signal.SIGINT)
+
+
+--- !python valgrind ./ticker 6
+malus=1
+exe = Compilation().compile()
+try:
+    import subprocess
+    subprocess.check_output(['valgrind', '--version'])
+except:
+    logging.warning("Valgrind is not installed on your system, skipping valgrind test")
+else:
+    p = exe.spawn(["6"], cmd_prefix=['valgrind', "--error-exitcode=1", "--leak-check=full"])
+    sys.stdout.write(slurp(p))
+    time.sleep(1)
+    ctrl_c(p)
+    sys.stdout.write(slurp(p))
+
+    for i in range(0, 6):
+        if p.poll() != None:
+            raise RuntimeError("Programm hat sich frühzeitig beendet")
+        ctrl_c(p)
+        sys.stdout.write(slurp(p))
+
+    if p.poll() != 0:
+       raise RuntimeError("Programm hat sich nicht ordnungsgemäß beendet")

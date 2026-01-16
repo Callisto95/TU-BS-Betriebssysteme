@@ -1,0 +1,89 @@
+--- !inherit 01_base.test
+--- !source fail_open_before
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <errno.h>
+
+int fail_open(const char* path, int oflag, ...) {
+	errno = EACCES;
+	return -1;
+}
+
+#define open fail_open
+--- !yaml
+requirements: [OUTPUT]
+--- !python Open fails
+import tempfile
+
+malus = 0.5
+stdout,stderr = Compilation(before_main=fail_open_before).compile().run(args=['5', '{print}', '*', os.path.join(tempfile.mkdtemp(), "outputfile")], must_fail=True)
+if "Permission denied" not in stderr:
+	raise RuntimeError("An error message is required when open fails to open a file. Use perror().")
+
+
+--- !source fail_dup_before
+#include <unistd.h>
+#include <errno.h>
+#include <stdlib.h>
+
+int fail_dup2(int oldfd, int newfd){
+	errno = EMFILE;
+	return -1;
+}
+
+#define dup2 fail_dup2
+--- !yaml
+requirements: [OUTPUT]
+--- !python dup fails
+import tempfile
+
+malus = 0.5
+stdout,stderr = Compilation(before_main=fail_dup_before).compile().run(args=['5', '{print}', '*', os.path.join(tempfile.mkdtemp(), "outputfile")], must_fail=True)
+if "Too many open files" not in stderr:
+	raise RuntimeError("An error message is required when dup fails. Use perror().")
+
+--- !source fail_fork_before
+#include <unistd.h>
+#include <errno.h>
+
+pid_t fail_fork(void){
+	errno = EAGAIN;
+	return -1;
+}
+
+#define fork fail_fork
+
+--- !yaml
+requirements: [AWK]
+--- !python fork fails
+malus = 0.5
+stdout,stderr = Compilation(before_main=fail_fork_before).compile().run(args=['5', '{print}', '*', '-'], must_fail=True)
+if "Resource temporarily unavailable" not in stderr:
+	raise RuntimeError("An error message is required when fork fails. Use perror().")
+
+
+--- !source fail_pipe_before
+#include <unistd.h>
+#include <errno.h>
+
+int fail_pipe(int pipefd[2]){
+	errno = ENFILE;
+	return -1;
+}
+
+int fail_pipe2(int pipefd[2], int flags){
+	errno = ENFILE;
+	return -1;
+}
+
+#define pipe fail_pipe
+#define pipe2 fail_pip2
+
+--- !yaml
+requirements: [AWK]
+--- !python pipe fails
+malus = 0.5
+stdout,stderr = Compilation(before_main=fail_pipe_before).compile().run(args=['5', '{print}', '*', '-'], must_fail=True)
+if "Too many open files in system" not in stderr:
+	raise RuntimeError("An error message is required when pipe fails. Use perror().")

@@ -27,7 +27,7 @@ if soll not in stdout:
 lines = stdout.splitlines()
 found = False
 for line in lines:
-    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line) and len(line) > 0:
         found = True
 if not found:
     logging.info("stdout:\n{}".format(stdout))
@@ -79,7 +79,7 @@ if soll not in stdout:
 lines = stdout.splitlines()
 found = False
 for line in lines:
-    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line) and len(line) > 0:
         found = True
 if not found:
     logging.info("stdout:\n{}".format(stdout))
@@ -119,7 +119,7 @@ if soll not in stdout:
 lines = stdout.splitlines()
 found = False
 for line in lines:
-    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line) and len(line) > 0:
         found = True
 if not found:
     logging.info("stdout:\n{}".format(stdout))
@@ -143,7 +143,7 @@ if soll not in stdout:
 lines = stdout.splitlines()
 found = False
 for line in lines:
-    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line) and len(line) > 0:
         found = True
 if not found:
     logging.info("stdout:\n{}".format(stdout))
@@ -167,7 +167,7 @@ if soll not in stdout:
 lines = stdout.splitlines()
 found = False
 for line in lines:
-    if not (" 1 active threads" in line) and not (" 0 active threads" in line):
+    if not (" 1 active threads" in line) and not (" 0 active threads" in line) and len(line) > 0:
         found = True
 if not found:
     logging.info("stdout:\n{}".format(stdout))
